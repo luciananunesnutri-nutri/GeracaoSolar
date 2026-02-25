@@ -10,12 +10,12 @@ logging:
   level: INFO
   max_bytes: 10485760
 scheduler:
-  collection_enabled: true
-  collection_on_startup: false
   cleanup_enabled: true
   cleanup_interval: 0 2 * * 0
+  collection_enabled: true
   collection_interval: 0 18 * * *
-  evening_summary_interval: 0 19 * * *
+  collection_on_startup: false
+  evening_summary_interval: 0 20 * * *
   statistics_interval: 55 23 * * *
 web:
   debug: false

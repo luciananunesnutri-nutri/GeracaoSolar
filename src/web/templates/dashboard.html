@@ -69,6 +69,7 @@
             <div class="stat-value" id="energyMonth">-- kWh</div>
             <div class="stat-label">Geração no Mês</div>
             <div id="energyMonthPrevYear" class="text-muted mt-1" style="font-size:0.75rem; min-height:1.1em;"></div>
+            <div id="monthVsLastYearBadge" class="mt-1" style="min-height:1.4em;"></div>
         </div>
     </div>
     <div class="col-6 col-md-4">
@@ -359,13 +360,112 @@
                     <i class="fas fa-exclamation-triangle"></i> Alertas do Sistema
                     <span class="badge bg-danger ms-2" id="alertBadge" style="display:none">0</span>
                 </h5>
-                <button class="btn btn-sm btn-outline-light" onclick="updateAlerts()" title="Atualizar">
-                    <i class="fas fa-sync-alt"></i>
-                </button>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-light btn-sm" id="btnAlertsToday"
+                                onclick="setAlertsMode(true)">Hoje</button>
+                        <button type="button" class="btn btn-outline-light btn-sm" id="btnAlertsAll"
+                                onclick="setAlertsMode(false)">Todos</button>
+                    </div>
+                    <button class="btn btn-sm btn-outline-light" onclick="updateAlerts()" title="Atualizar">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
             </div>
             <div class="card-body p-0" id="alertsTableWrapper">
                 <div class="text-center p-4 text-muted" id="alertsPlaceholder">
                     <i class="fas fa-spinner fa-spin"></i> Carregando alertas...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Versão / Changelog -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-0" style="background:transparent">
+            <div class="card-body p-0">
+                <button class="btn btn-link text-muted text-decoration-none p-0 d-flex align-items-center gap-2"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#changelogCollapse"
+                        style="font-size:0.78rem">
+                    <i class="fas fa-code-branch"></i>
+                    <span>Sistema de Monitoramento Solar APSystems</span>
+                    <span class="badge rounded-pill" style="background:#e9ecef;color:#6c757d;font-weight:500">v1.3</span>
+                    <i class="fas fa-chevron-down" style="font-size:0.65rem;opacity:.6"></i>
+                </button>
+                <div class="collapse mt-2" id="changelogCollapse">
+                    <div class="card border-0 shadow-sm" style="font-size:0.82rem">
+                        <div class="card-body py-3 px-4">
+                            <div class="d-flex flex-column gap-3">
+
+                                <!-- v1.3 -->
+                                <div>
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge" style="background:#0d6efd">v1.3</span>
+                                        <span class="text-muted" style="font-size:0.75rem">25/02/2026</span>
+                                    </div>
+                                    <ul class="mb-0 ps-3" style="line-height:1.8">
+                                        <li><strong>Alertas:</strong> exibe por padrão somente os alertas do dia corrente — botão <kbd>Todos</kbd> para visualizar o histórico completo</li>
+                                        <li><strong>Geração no Mês:</strong> indicador visual <span style="color:#198754;font-weight:600">▲</span>/<span style="color:#dc3545;font-weight:600">▼</span> com variação percentual em relação ao mesmo mês do ano anterior</li>
+                                        <li><strong>Dashboard:</strong> atualização automática removida — campo <em>Atualizado</em> exibe o horário real da última coleta de dados</li>
+                                        <li><strong>Insights:</strong> seções de perfil de geração, impacto ambiental/financeiro e performance dos inversores incluídas no relatório de email diário</li>
+                                    </ul>
+                                </div>
+
+                                <hr class="my-1">
+
+                                <!-- v1.2 -->
+                                <div>
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge" style="background:#6c757d">v1.2</span>
+                                        <span class="text-muted" style="font-size:0.75rem">Fev/2026</span>
+                                    </div>
+                                    <ul class="mb-0 ps-3" style="line-height:1.8">
+                                        <li><strong>Página Insights:</strong> análise completa de geração, performance por inversor, impacto ambiental e financeiro</li>
+                                        <li><strong>Versão mobile:</strong> layout responsivo com navegação inferior para smartphones</li>
+                                        <li><strong>Agendador:</strong> controles para habilitar/desabilitar coleta agendada, coleta ao iniciar e limpeza de dados</li>
+                                        <li><strong>Deploy:</strong> scripts de configuração para Oracle Cloud Free Tier (systemd + Gunicorn + Nginx)</li>
+                                    </ul>
+                                </div>
+
+                                <hr class="my-1">
+
+                                <!-- v1.1 -->
+                                <div>
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge" style="background:#6c757d">v1.1</span>
+                                        <span class="text-muted" style="font-size:0.75rem">Fev/2026</span>
+                                    </div>
+                                    <ul class="mb-0 ps-3" style="line-height:1.8">
+                                        <li><strong>Email:</strong> resumo vespertino e relatório diário com alertas integrados; múltiplos destinatários</li>
+                                        <li><strong>Gráfico:</strong> toggle horário/minutely, navegação por data, agrupamento por inversor</li>
+                                        <li><strong>Anomalias:</strong> detecção de canal zero, alarme ECU, inversores offline; lista de alertas no dashboard</li>
+                                        <li><strong>Página de configuração:</strong> SMTP, destinatários, agendamentos e parâmetros do sistema</li>
+                                    </ul>
+                                </div>
+
+                                <hr class="my-1">
+
+                                <!-- v1.0 -->
+                                <div>
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge" style="background:#6c757d">v1.0</span>
+                                        <span class="text-muted" style="font-size:0.75rem">Fev/2026</span>
+                                    </div>
+                                    <ul class="mb-0 ps-3" style="line-height:1.8">
+                                        <li>Coleta de dados via API APSystems OpenAPI v2</li>
+                                        <li>Dashboard com potência atual, geração diária, mensal, anual e acumulada</li>
+                                        <li>Telemetria minutely (ECU), dados por inversor/canal e medidor de energia</li>
+                                        <li>Banco de dados SQLite com agendador APScheduler</li>
+                                    </ul>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -387,11 +487,6 @@
     let availableDates = [];   // YYYY-MM-DD, ordem decrescente (mais recente = índice 0)
     let selectedDateIdx = 0;
     let selectedDate = new Date().toISOString().split('T')[0];
-    const CURRENT_INTERVAL = 60;
-    const FULL_INTERVAL    = 5 * 60;
-    let secondsUntilFull = FULL_INTERVAL;
-    let secondsUntilCurrent = CURRENT_INTERVAL;
-
     // Paleta de cores para até 4 canais
     const CHANNEL_COLORS = [
         'rgba(40, 167, 69, 0.85)',   // verde
@@ -418,11 +513,13 @@
 
     // ── Totais mês / ano / lifetime ──────────────────────────────────────────
     async function updateEnergyTotals() {
+        let currentMonthKwh = null;
         try {
             const res = await fetch('/api/energy/totals');
             const data = await res.json();
             if (data.status === 'success') {
-                document.getElementById('energyMonth').textContent    = `${(+data.month_kwh||0).toFixed(2)} kWh`;
+                currentMonthKwh = +(data.month_kwh || 0);
+                document.getElementById('energyMonth').textContent    = `${currentMonthKwh.toFixed(2)} kWh`;
                 document.getElementById('energyYear').textContent     = `${(+data.year_kwh||0).toFixed(2)} kWh`;
                 document.getElementById('energyLifetime').textContent = `${(+data.lifetime_kwh||0).toFixed(2)} kWh`;
             }
@@ -432,15 +529,35 @@
         try {
             const res = await fetch('/api/energy/prev-year-month');
             const data = await res.json();
-            const el = document.getElementById('energyMonthPrevYear');
+            const el    = document.getElementById('energyMonthPrevYear');
+            const badge = document.getElementById('monthVsLastYearBadge');
             if (data.status === 'success') {
                 const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-                const mName = monthNames[data.month - 1];
-                el.textContent = `${mName}/${data.year}: ${(+data.kwh).toFixed(2)} kWh`;
+                const mName  = monthNames[data.month - 1];
+                const prevKwh = +(data.kwh) || 0;
+                el.textContent = `${mName}/${data.year}: ${prevKwh.toFixed(2)} kWh`;
+
+                // Indicador visual vs ano anterior
+                if (badge && currentMonthKwh !== null && prevKwh > 0) {
+                    const diffPct = ((currentMonthKwh - prevKwh) / prevKwh) * 100;
+                    const above   = diffPct >= 0;
+                    const icon    = above ? '▲' : '▼';
+                    const color   = above ? '#198754' : '#dc3545';
+                    const bg      = above ? 'rgba(25,135,84,0.12)' : 'rgba(220,53,69,0.12)';
+                    const sign    = above ? '+' : '';
+                    badge.innerHTML = `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;background:${bg};color:${color};font-size:0.70rem;font-weight:600;">${icon} ${sign}${diffPct.toFixed(1)}% vs ano ant.</span>`;
+                } else if (badge) {
+                    badge.innerHTML = '';
+                }
             } else {
                 el.textContent = '';
+                if (badge) badge.innerHTML = '';
             }
-        } catch (e) { document.getElementById('energyMonthPrevYear').textContent = ''; }
+        } catch (e) {
+            document.getElementById('energyMonthPrevYear').textContent = '';
+            const badge = document.getElementById('monthVsLastYearBadge');
+            if (badge) badge.innerHTML = '';
+        }
     }
 
     // ── Navegação por data ────────────────────────────────────────────────────
@@ -806,9 +923,21 @@
         peak: 'Pico', alarm: 'Alarme'
     };
 
+    let alertsTodayOnly = true;
+
+    function setAlertsMode(todayOnly) {
+        alertsTodayOnly = todayOnly;
+        document.getElementById('btnAlertsToday').className =
+            todayOnly ? 'btn btn-light btn-sm' : 'btn btn-outline-light btn-sm';
+        document.getElementById('btnAlertsAll').className =
+            todayOnly ? 'btn btn-outline-light btn-sm' : 'btn btn-light btn-sm';
+        updateAlerts();
+    }
+
     async function updateAlerts() {
         try {
-            const res = await fetch('/api/alerts?all=1&limit=30');
+            const params = alertsTodayOnly ? 'today=1&all=1' : 'all=1&limit=200';
+            const res = await fetch(`/api/alerts?${params}`);
             const data = await res.json();
             if (data.status !== 'success') return;
 
@@ -828,8 +957,9 @@
             const wrapper = document.getElementById('alertsTableWrapper');
 
             if (!data.alerts || data.alerts.length === 0) {
+                const msg = alertsTodayOnly ? 'Nenhum alerta detectado hoje' : 'Nenhum alerta registrado';
                 wrapper.innerHTML = `<div class="text-center p-4 text-success">
-                    <i class="fas fa-check-circle fa-2x mb-2 d-block"></i>Nenhum alerta detectado</div>`;
+                    <i class="fas fa-check-circle fa-2x mb-2 d-block"></i>${msg}</div>`;
                 return;
             }
 
@@ -848,7 +978,10 @@
             for (const a of data.alerts) {
                 const sc   = SEVERITY_CFG[a.severity] || { cls:'secondary', icon:'bell', label: a.severity };
                 const type = TYPE_LABELS[a.alert_type] || a.alert_type;
-                const dt   = new Date(a.timestamp).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+                const dtOpts = alertsTodayOnly
+                    ? {hour:'2-digit', minute:'2-digit'}
+                    : {day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit'};
+                const dt   = new Date(a.timestamp).toLocaleString('pt-BR', dtOpts);
                 const rowCls = a.resolved ? 'table-secondary text-muted' : '';
                 const resolvedAt = a.resolved_at
                     ? new Date(a.resolved_at).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})
@@ -884,7 +1017,7 @@
         } catch (e) { console.error('resolveAlert:', e); }
     }
 
-    // ── Ciclos de atualização ────────────────────────────────────────────────
+    // ── Atualização manual ────────────────────────────────────────────────────
     async function fullUpdate() {
         const indicator = document.getElementById('refreshIndicator');
         indicator.style.display = 'block';
@@ -898,30 +1031,6 @@
             updateAlerts()
         ]);
         indicator.style.display = 'none';
-        secondsUntilFull = FULL_INTERVAL;
-        secondsUntilCurrent = CURRENT_INTERVAL;
-    }
-
-    function updateCountdown() {
-        secondsUntilCurrent--;
-        secondsUntilFull--;
-
-        if (secondsUntilCurrent <= 0) {
-            updateCurrentData();
-            updateMeterData();
-            updateAlerts();
-            secondsUntilCurrent = CURRENT_INTERVAL;
-        }
-
-        if (secondsUntilFull <= 0) {
-            fullUpdate();
-            return;
-        }
-
-        const m = Math.floor(secondsUntilFull / 60);
-        const s = secondsUntilFull % 60;
-        const display = m > 0 ? `${m}m ${s.toString().padStart(2,'0')}s` : `${s}s`;
-        document.getElementById('countdown').textContent = `Próx. atualização: ${display}`;
     }
 
     // ── Destinatários ─────────────────────────────────────────────────────────
@@ -1088,7 +1197,6 @@
         loadAvailableDates().then(() => fullUpdate());
         loadEmailConfig();
         loadRecipients();
-        setInterval(updateCountdown, 1000);
     });
 </script>
 {% endblock %}

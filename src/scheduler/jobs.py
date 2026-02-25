@@ -264,11 +264,22 @@ def send_evening_summary():
         except Exception as e:
             logger.warning(f"Erro ao buscar alertas do dia: {e}")
 
+        # Gerar insights para incluir no email
+        insights = None
+        try:
+            from ..analysis.insights import generate_insights
+            insights = generate_insights(repository=repository)
+            logger.info("Insights gerados para o resumo vespertino")
+        except Exception as e:
+            logger.warning(f"Erro ao gerar insights para o email: {e}")
+
         # Enviar email
         from ..alerts.alert_manager import AlertManager
 
         alert_manager = AlertManager()
-        success = alert_manager.email_sender.send_evening_summary_email(summary_data, todays_alerts)
+        success = alert_manager.email_sender.send_evening_summary_email(
+            summary_data, todays_alerts, insights
+        )
 
         if success:
             logger.info("Resumo vespertino enviado com sucesso")
@@ -322,8 +333,17 @@ def calculate_statistics():
                      'message': a.message, 'timestamp': a.timestamp.isoformat()}
                     for a in alerts_objs
                 ]
+                # Gerar insights para incluir no relatório
+                report_insights = None
+                try:
+                    from ..analysis.insights import generate_insights
+                    report_insights = generate_insights(repository=repository)
+                except Exception as _e:
+                    logger.warning(f"Erro ao gerar insights para o relatório: {_e}")
                 alert_manager = AlertManager()
-                alert_manager.email_sender.send_daily_report_email(daily_stats, todays_alerts)
+                alert_manager.email_sender.send_daily_report_email(
+                    daily_stats, todays_alerts, report_insights
+                )
             except Exception as e:
                 logger.warning(f"Falha ao enviar relatório diário por email: {e}")
 

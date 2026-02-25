@@ -23,6 +23,15 @@ def create_app():
     from .routes import register_routes
     register_routes(app)
 
+    # Forçar no-cache em todas as respostas HTML para evitar cache de browser
+    @app.after_request
+    def add_no_cache_headers(response):
+        if 'text/html' in response.content_type:
+            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+        return response
+
     return app
 
 

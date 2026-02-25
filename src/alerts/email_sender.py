@@ -102,13 +102,15 @@ class EmailSender:
         recipients = self._get_recipients(alerts_only=True)
         return self.send_email(subject, body, html=True, recipients=recipients)
 
-    def send_daily_report_email(self, stats: Dict, alerts: list = None) -> bool:
+    def send_daily_report_email(self, stats: Dict, alerts: list = None,
+                                insights: dict = None) -> bool:
         """
-        Envia email com relatório diário, incluindo alertas do dia se houver.
+        Envia email com relatório diário, incluindo alertas e insights se disponíveis.
 
         Args:
-            stats: Dicionário com estatísticas do dia
-            alerts: Lista de dicionários de alerta (opcional)
+            stats:    Dicionário com estatísticas do dia
+            alerts:   Lista de dicionários de alerta (opcional)
+            insights: Dict gerado por generate_insights() (opcional)
 
         Returns:
             True se enviado com sucesso
@@ -116,7 +118,7 @@ class EmailSender:
         subject = f"📊 Relatório Solar Diário - {stats['date']}"
         if alerts:
             subject += f" ⚠️ {len(alerts)} alerta(s)"
-        body = self._create_daily_report_html(stats, alerts or [])
+        body = self._create_daily_report_html(stats, alerts or [], insights)
         recipients = self._get_recipients(reports_only=True)
         return self.send_email(subject, body, html=True, recipients=recipients)
 
@@ -183,14 +185,146 @@ class EmailSender:
 
         return html
 
-    def send_evening_summary_email(self, data: Dict, alerts: list = None) -> bool:
-        """Envia resumo do dia às 17:00, incluindo alertas do dia se houver."""
+    def send_evening_summary_email(self, data: Dict, alerts: list = None,
+                                   insights: dict = None) -> bool:
+        """Envia resumo do dia às 17:00, incluindo alertas e insights se disponíveis."""
         subject = f"☀️ Resumo Solar — {data['date']}"
         if alerts:
             subject += f" ⚠️ {len(alerts)} alerta(s)"
-        body = self._create_evening_summary_html(data, alerts or [])
+        body = self._create_evening_summary_html(data, alerts or [], insights)
         recipients = self._get_recipients(reports_only=True)
         return self.send_email(subject, body, html=True, recipients=recipients)
+
+    def _build_insights_html_block(self, insights: dict) -> str:
+        """Cria bloco HTML com as seções de insights para incluir nos emails programados."""
+        if not insights or insights.get('status') != 'success':
+            return ''
+
+        energy  = insights.get('energy', {})
+        profile = insights.get('profile', {})
+        invs    = insights.get('inverters', [])
+
+        sections = []
+
+        # ── Perfil de Geração ─────────────────────────────────────────────────
+        if profile:
+            dur = profile.get('duration_minutes')
+            dur_txt = f"{dur // 60}h{dur % 60:02d}min" if dur else '—'
+            sections.append(f"""
+      <div style="margin-top:20px;border-top:2px solid #f39c12;padding-top:16px">
+        <p style="margin:0 0 10px;font-weight:bold;color:#f39c12">☀️ Perfil de Geração do Dia</p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tbody>
+            <tr>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;color:#6c757d;width:50%">Início da geração</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;font-weight:600">{profile.get('start_time','—')}</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;color:#6c757d;width:50%">Fim da geração</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;font-weight:600">{profile.get('end_time','—')}</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;color:#6c757d">Horário do pico</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;font-weight:600">{profile.get('peak_time','—')}</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;color:#6c757d">Pico de potência</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;font-weight:600">{profile.get('peak_power_w',0):,} W ({profile.get('peak_power_pct',0):.1f}% da cap.)</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;color:#6c757d">Duração solar</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;font-weight:600">{dur_txt}</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;color:#6c757d">Fator de capacidade</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;font-weight:600">{profile.get('capacity_factor_pct',0):.1f}%</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 10px;color:#6c757d">Potência média ativa</td>
+              <td style="padding:5px 10px;font-weight:600">{profile.get('avg_active_power_w',0):,} W</td>
+              <td style="padding:5px 10px;color:#6c757d">Pontos de dados</td>
+              <td style="padding:5px 10px;font-weight:600">{profile.get('data_points',0)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>""")
+
+        # ── Impacto Ambiental e Financeiro ─────────────────────────────────────
+        if energy.get('lifetime_kwh', 0) > 0:
+            day_change = energy.get('day_change_pct')
+            if day_change is not None:
+                arrow = '▲' if day_change >= 0 else '▼'
+                chg_color = '#198754' if day_change >= 0 else '#dc3545'
+                sign = '+' if day_change >= 0 else ''
+                day_change_html = (
+                    f'<span style="color:{chg_color};font-weight:600">'
+                    f'{arrow} {sign}{day_change:.1f}% vs ontem</span>'
+                )
+            else:
+                day_change_html = '<span style="color:#6c757d">—</span>'
+
+            sections.append(f"""
+      <div style="margin-top:20px;border-top:2px solid #20c997;padding-top:16px">
+        <p style="margin:0 0 10px;font-weight:bold;color:#20c997">🌱 Impacto Ambiental e Financeiro</p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tbody>
+            <tr>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;color:#6c757d;width:50%">Economia acumulada</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;font-weight:600">R$ {energy.get('financial_savings_brl',0):,.2f}</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;color:#6c757d;width:50%">CO₂ evitado</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;font-weight:600">{energy.get('co2_avoided_tonnes',0):.2f} t</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 10px;color:#6c757d">Geração acumulada (lifetime)</td>
+              <td style="padding:5px 10px;font-weight:600">{energy.get('lifetime_kwh',0):,.2f} kWh</td>
+              <td style="padding:5px 10px;color:#6c757d">Variação vs ontem</td>
+              <td style="padding:5px 10px">{day_change_html}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>""")
+
+        # ── Performance dos Inversores ─────────────────────────────────────────
+        if invs:
+            # Mostrar até top-5 e bottom-3 se houver muitos
+            show_top = invs[:5]
+            show_bot = [i for i in invs[-3:] if i not in show_top] if len(invs) > 5 else []
+            all_show = show_top + show_bot
+
+            rows = ''
+            for idx, inv in enumerate(all_show):
+                is_separator = (idx == len(show_top) and show_bot)
+                if is_separator:
+                    rows += '<tr><td colspan="5" style="padding:4px 10px;font-size:11px;color:#6c757d;background:#f8f9fa;text-align:center">⋯ demais inversores ⋯</td></tr>'
+                asym = inv.get('asymmetry_pct')
+                asym_txt = f"{asym:.1f}%" if asym is not None else '—'
+                bar_pct = inv.get('pct_of_best', 0)
+                bar_color = '#198754' if bar_pct >= 90 else ('#ffc107' if bar_pct >= 70 else '#dc3545')
+                rows += f"""<tr>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;font-family:monospace;font-size:12px">{inv['uid']}</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;text-align:right">{inv['today_kwh']:.3f} kWh</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;text-align:right">{inv['month_kwh']:.2f} kWh</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;text-align:right">{asym_txt}</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6">
+                <div style="background:#e9ecef;border-radius:4px;height:10px;width:100%;min-width:60px">
+                  <div style="background:{bar_color};width:{bar_pct}%;height:10px;border-radius:4px"></div>
+                </div>
+                <span style="font-size:11px;color:#6c757d">{bar_pct:.0f}%</span>
+              </td>
+            </tr>"""
+
+            sections.append(f"""
+      <div style="margin-top:20px;border-top:2px solid #17a2b8;padding-top:16px">
+        <p style="margin:0 0 10px;font-weight:bold;color:#17a2b8">⚡ Performance dos Inversores (Hoje)</p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:#f8f9fa">
+              <th style="padding:6px 10px;text-align:left;border-bottom:2px solid #dee2e6">Inversor</th>
+              <th style="padding:6px 10px;text-align:right;border-bottom:2px solid #dee2e6">Hoje</th>
+              <th style="padding:6px 10px;text-align:right;border-bottom:2px solid #dee2e6">Mês</th>
+              <th style="padding:6px 10px;text-align:right;border-bottom:2px solid #dee2e6">Assim.</th>
+              <th style="padding:6px 10px;text-align:left;border-bottom:2px solid #dee2e6">% do melhor</th>
+            </tr>
+          </thead>
+          <tbody>{rows}</tbody>
+        </table>
+      </div>""")
+
+        return '\n'.join(sections)
 
     def _build_alerts_html_block(self, alerts: list) -> str:
         """Cria bloco HTML com tabela de alertas para incluir nos emails programados."""
@@ -239,7 +373,8 @@ class EmailSender:
         </table>
       </div>"""
 
-    def _create_evening_summary_html(self, data: Dict, alerts: list = None) -> str:
+    def _create_evening_summary_html(self, data: Dict, alerts: list = None,
+                                     insights: dict = None) -> str:
         """Cria HTML do resumo vespertino."""
         lifetime = data.get('lifetime_kwh', 0)
         lifetime_row = f"""
@@ -247,7 +382,8 @@ class EmailSender:
         <p style="margin:0 0 4px;color:#6c757d">Total Acumulado (Lifetime)</p>
         <p class="stat-value" style="color:#6c757d">{lifetime:,.2f} kWh</p>
       </div>""" if lifetime else ''
-        alerts_block = self._build_alerts_html_block(alerts or [])
+        alerts_block   = self._build_alerts_html_block(alerts or [])
+        insights_block = self._build_insights_html_block(insights) if insights else ''
 
         return f"""<!DOCTYPE html>
 <html>
@@ -296,6 +432,7 @@ class EmailSender:
         </div>
       </div>
       {lifetime_row}
+      {insights_block}
       {alerts_block}
       <div class="footer">
         <p>Enviado automaticamente às 17:00 — Sistema de Monitoramento Solar APSystems</p>
@@ -305,11 +442,13 @@ class EmailSender:
 </body>
 </html>"""
 
-    def _create_daily_report_html(self, stats: Dict, alerts: list = None) -> str:
+    def _create_daily_report_html(self, stats: Dict, alerts: list = None,
+                                   insights: dict = None) -> str:
         """Cria HTML para relatório diário."""
-        month_kwh = stats.get('month_kwh', 0)
-        year_kwh  = stats.get('year_kwh', 0)
-        alerts_block = self._build_alerts_html_block(alerts or [])
+        month_kwh      = stats.get('month_kwh', 0)
+        year_kwh       = stats.get('year_kwh', 0)
+        alerts_block   = self._build_alerts_html_block(alerts or [])
+        insights_block = self._build_insights_html_block(insights) if insights else ''
 
         month_row = f"""
             <div class="stat-box">
@@ -357,6 +496,7 @@ class EmailSender:
         <p class="stat-value">{stats['average_power_watts']:.0f} W</p>
       </div>
       {month_row}
+      {insights_block}
       {alerts_block}
       <div class="footer">
         <p>Gerado automaticamente em {datetime.now().strftime('%d/%m/%Y às %H:%M:%S')}</p>
