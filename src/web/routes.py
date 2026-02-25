@@ -84,6 +84,9 @@ def register_routes(app):
                                          em.get('sender_password') != 'senha_aplicativo_google'),
                 },
                 'scheduler': {
+                    'collection_enabled':       sc.get('collection_enabled', True),
+                    'collection_on_startup':    sc.get('collection_on_startup', False),
+                    'cleanup_enabled':          sc.get('cleanup_enabled', True),
                     'collection_interval':      sc.get('collection_interval', '0 8-17 * * *'),
                     'evening_summary_interval': sc.get('evening_summary_interval', '0 17 * * *'),
                     'statistics_interval':      sc.get('statistics_interval', '55 23 * * *'),
@@ -136,6 +139,11 @@ def register_routes(app):
                 cfg = yaml.safe_load(f)
 
             sc = cfg.setdefault('scheduler', {})
+            # Flags booleanas
+            for key in ('collection_enabled', 'collection_on_startup', 'cleanup_enabled'):
+                if key in data:
+                    sc[key] = bool(data[key])
+            # Expressões cron
             for key in ('collection_interval', 'evening_summary_interval',
                         'statistics_interval', 'cleanup_interval'):
                 if data.get(key):

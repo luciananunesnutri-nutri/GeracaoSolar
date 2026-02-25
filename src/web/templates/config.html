@@ -212,32 +212,91 @@
             <div class="card-body">
                 <div class="alert alert-warning small py-2 mb-4">
                     <i class="fas fa-exclamation-triangle"></i>
-                    Alterações nos agendamentos requerem <strong>reinicialização do scheduler (main.py)</strong> para entrar em vigor.
+                    Alterações requerem <strong>reinicialização do scheduler (main.py)</strong> para entrar em vigor.
                     Use a sintaxe <a href="https://crontab.guru" target="_blank">cron</a> padrão.
                 </div>
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Coleta de Dados</label>
-                        <input type="text" class="form-control font-monospace" id="scCollection" placeholder="0 8-17 * * *">
-                        <div class="form-text">Horário de coleta da API APSystems.</div>
+
+                <!-- ── Controles de ativação ── -->
+                <h6 class="fw-semibold text-muted mb-3"><i class="fas fa-toggle-on me-1"></i> Ativação dos Jobs</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-12 col-md-4">
+                        <div class="card border h-100">
+                            <div class="card-body py-3">
+                                <div class="d-flex align-items-center justify-content-between gap-2">
+                                    <div>
+                                        <div class="fw-semibold"><i class="fas fa-download text-primary me-1"></i> Coleta Agendada</div>
+                                        <small class="text-muted">Coleta automática da API APSystems via cron</small>
+                                    </div>
+                                    <div class="form-check form-switch mb-0 ms-2">
+                                        <input class="form-check-input" type="checkbox" role="switch"
+                                               id="scCollectionEnabled" style="width:2.5em;height:1.3em"
+                                               onchange="toggleCollectionFields()">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Resumo Vespertino (Email 17h)</label>
-                        <input type="text" class="form-control font-monospace" id="scEveningSummary" placeholder="0 17 * * *">
-                        <div class="form-text">Email de resumo ao fim do dia de geração.</div>
+                    <div class="col-12 col-md-4">
+                        <div class="card border h-100">
+                            <div class="card-body py-3">
+                                <div class="d-flex align-items-center justify-content-between gap-2">
+                                    <div>
+                                        <div class="fw-semibold"><i class="fas fa-play-circle text-success me-1"></i> Coletar ao Iniciar</div>
+                                        <small class="text-muted">Executa uma coleta imediatamente ao subir o scheduler</small>
+                                    </div>
+                                    <div class="form-check form-switch mb-0 ms-2">
+                                        <input class="form-check-input" type="checkbox" role="switch"
+                                               id="scCollectionOnStartup" style="width:2.5em;height:1.3em">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Cálculo de Estatísticas</label>
-                        <input type="text" class="form-control font-monospace" id="scStatistics" placeholder="55 23 * * *">
-                        <div class="form-text">Relatório diário por email e cálculo de totais.</div>
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">Limpeza de Dados Antigos</label>
-                        <input type="text" class="form-control font-monospace" id="scCleanup" placeholder="0 2 * * 0">
-                        <div class="form-text">Remove dados com mais de 6 meses e otimiza o banco.</div>
+                    <div class="col-12 col-md-4">
+                        <div class="card border h-100">
+                            <div class="card-body py-3">
+                                <div class="d-flex align-items-center justify-content-between gap-2">
+                                    <div>
+                                        <div class="fw-semibold"><i class="fas fa-trash-alt text-danger me-1"></i> Limpeza de Dados</div>
+                                        <small class="text-muted">Remove registros com mais de 6 meses do banco</small>
+                                    </div>
+                                    <div class="form-check form-switch mb-0 ms-2">
+                                        <input class="form-check-input" type="checkbox" role="switch"
+                                               id="scCleanupEnabled" style="width:2.5em;height:1.3em"
+                                               onchange="toggleCleanupField()">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="mt-4 d-flex gap-2">
+
+                <!-- ── Expressões Cron ── -->
+                <h6 class="fw-semibold text-muted mb-3"><i class="fas fa-clock me-1"></i> Horários (expressão cron)</h6>
+                <div class="row g-3">
+                    <div class="col-12 col-md-6" id="fieldCollectionInterval">
+                        <label class="form-label fw-semibold">Coleta de Dados</label>
+                        <input type="text" class="form-control font-monospace" id="scCollection" placeholder="0 8-17 * * *">
+                        <div class="form-text">Intervalo em que a API APSystems é consultada.</div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label fw-semibold">Resumo Vespertino (Email)</label>
+                        <input type="text" class="form-control font-monospace" id="scEveningSummary" placeholder="0 17 * * *">
+                        <div class="form-text">Envio do email de resumo ao fim do dia solar.</div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label fw-semibold">Cálculo de Estatísticas</label>
+                        <input type="text" class="form-control font-monospace" id="scStatistics" placeholder="55 23 * * *">
+                        <div class="form-text">Relatório diário por email e consolidação de totais.</div>
+                    </div>
+                    <div class="col-12 col-md-6" id="fieldCleanupInterval">
+                        <label class="form-label fw-semibold">Limpeza de Dados Antigos</label>
+                        <input type="text" class="form-control font-monospace" id="scCleanup" placeholder="0 2 * * 0">
+                        <div class="form-text">Frequência da limpeza automática do banco de dados.</div>
+                    </div>
+                </div>
+
+                <div class="mt-4 d-flex gap-2 flex-wrap">
                     <button class="btn btn-warning" onclick="saveSection('scheduler')">
                         <i class="fas fa-save"></i> Salvar Agendamentos
                     </button>
@@ -322,6 +381,35 @@ function feedback(section, msg, type) {
     if (type === 'success') setTimeout(() => { el.innerHTML = ''; }, 5000);
 }
 
+// ── Toggles de ativação (visual feedback) ─────────────────────────────────
+function toggleCollectionFields() {
+    const enabled = document.getElementById('scCollectionEnabled').checked;
+    const field   = document.getElementById('fieldCollectionInterval');
+    const startupSwitch = document.getElementById('scCollectionOnStartup');
+    if (field) {
+        field.style.opacity = enabled ? '1' : '0.4';
+        field.querySelector('input').disabled = !enabled;
+    }
+    if (startupSwitch) startupSwitch.disabled = !enabled;
+
+    // Destaque visual no card
+    const card = document.getElementById('scCollectionEnabled').closest('.card');
+    card.classList.toggle('border-primary', enabled);
+    card.classList.toggle('border-danger',  !enabled);
+}
+
+function toggleCleanupField() {
+    const enabled = document.getElementById('scCleanupEnabled').checked;
+    const field   = document.getElementById('fieldCleanupInterval');
+    if (field) {
+        field.style.opacity = enabled ? '1' : '0.4';
+        field.querySelector('input').disabled = !enabled;
+    }
+    const card = document.getElementById('scCleanupEnabled').closest('.card');
+    card.classList.toggle('border-danger', !enabled);
+    card.classList.toggle('border-primary', enabled);
+}
+
 // ── Carrega todas as configs ───────────────────────────────────────────────
 async function loadAll() {
     try {
@@ -336,7 +424,14 @@ async function loadAll() {
         // Email
         document.getElementById('cfgSenderEmail').value = data.email.sender_email || '';
 
-        // Scheduler
+        // Scheduler — flags booleanas
+        document.getElementById('scCollectionEnabled').checked   = data.scheduler.collection_enabled    !== false;
+        document.getElementById('scCollectionOnStartup').checked = data.scheduler.collection_on_startup === true;
+        document.getElementById('scCleanupEnabled').checked      = data.scheduler.cleanup_enabled       !== false;
+        toggleCollectionFields();
+        toggleCleanupField();
+
+        // Scheduler — expressões cron
         document.getElementById('scCollection').value     = data.scheduler.collection_interval      || '';
         document.getElementById('scEveningSummary').value = data.scheduler.evening_summary_interval || '';
         document.getElementById('scStatistics').value     = data.scheduler.statistics_interval      || '';
@@ -363,6 +458,9 @@ async function saveSection(section) {
     } else if (section === 'scheduler') {
         url  = '/api/config/scheduler';
         body = {
+            collection_enabled:       document.getElementById('scCollectionEnabled').checked,
+            collection_on_startup:    document.getElementById('scCollectionOnStartup').checked,
+            cleanup_enabled:          document.getElementById('scCleanupEnabled').checked,
             collection_interval:      document.getElementById('scCollection').value.trim(),
             evening_summary_interval: document.getElementById('scEveningSummary').value.trim(),
             statistics_interval:      document.getElementById('scStatistics').value.trim(),
