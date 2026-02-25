@@ -1,0 +1,24 @@
+[Unit]
+Description=Monitoramento Solar — Scheduler de Coleta
+Documentation=https://github.com/seu-usuario/geracaosolar
+After=network.target solar-web.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=solar
+Group=solar
+WorkingDirectory=/opt/geracaosolar
+ExecStart=/opt/geracaosolar/venv/bin/python main.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=solar-scheduler
+
+# Segurança
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
