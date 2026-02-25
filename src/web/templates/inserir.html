@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Inserir Dados - Monitoramento Solar{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="fas fa-edit"></i> Inserir Dados Manualmente</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    <i class="fas fa-info-circle"></i> Abra o app APSystems no celular e copie os valores abaixo:
+                </p>
+
+                <form id="formInserirDados">
+                    <div class="mb-3">
+                        <label for="potenciaAtual" class="form-label">
+                            <i class="fas fa-bolt text-warning"></i> Potência Atual (W) *
+                        </label>
+                        <input type="number" class="form-control" id="potenciaAtual"
+                               placeholder="Ex: 3500" step="0.1" required>
+                        <small class="text-muted">Valor em Watts que aparece no app</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="energiaHoje" class="form-label">
+                            <i class="fas fa-sun text-primary"></i> Energia Hoje (kWh)
+                        </label>
+                        <input type="number" class="form-control" id="energiaHoje"
+                               placeholder="Ex: 15.5" step="0.01">
+                        <small class="text-muted">Geração total do dia (opcional)</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="energiaTotal" class="form-label">
+                            <i class="fas fa-chart-line text-info"></i> Energia Total (kWh)
+                        </label>
+                        <input type="number" class="form-control" id="energiaTotal"
+                               placeholder="Ex: 1250.75" step="0.01">
+                        <small class="text-muted">Total acumulado (opcional)</small>
+                    </div>
+
+                    <hr>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-save"></i> Salvar Dados
+                        </button>
+                        <a href="/" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> Voltar ao Dashboard
+                        </a>
+                    </div>
+                </form>
+
+                <div id="resultado" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Card de Ajuda -->
+        <div class="card mt-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-question-circle"></i> Como Usar</h5>
+            </div>
+            <div class="card-body">
+                <ol>
+                    <li>Abra o <strong>app APSystems</strong> no seu celular</li>
+                    <li>Veja os valores de <strong>Potência</strong> e <strong>Energia</strong></li>
+                    <li>Digite os valores acima</li>
+                    <li>Clique em <strong>Salvar Dados</strong></li>
+                    <li>O sistema irá:
+                        <ul>
+                            <li>✅ Salvar no banco de dados</li>
+                            <li>🔍 Analisar por anomalias</li>
+                            <li>📧 Enviar alertas se necessário</li>
+                            <li>📊 Atualizar dashboard</li>
+                        </ul>
+                    </li>
+                </ol>
+
+                <div class="alert alert-warning mt-3">
+                    <i class="fas fa-lightbulb"></i> <strong>Dica:</strong>
+                    Insira dados 1-2 vezes por dia para melhores estatísticas!
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('formInserirDados').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const potencia = document.getElementById('potenciaAtual').value;
+    const energiaHoje = document.getElementById('energiaHoje').value;
+    const energiaTotal = document.getElementById('energiaTotal').value;
+
+    if (!potencia) {
+        mostrarResultado('erro', 'Potência atual é obrigatória!');
+        return;
+    }
+
+    const dados = {
+        power_watts: parseFloat(potencia),
+        energy_kwh_daily: energiaHoje ? parseFloat(energiaHoje) : null,
+        energy_kwh_total: energiaTotal ? parseFloat(energiaTotal) : null
+    };
+
+    try {
+        mostrarResultado('processando', 'Salvando dados...');
+
+        const response = await fetch('/api/inserir_dados', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(dados)
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            mostrarResultado('sucesso', result.message, result);
+
+            // Limpar formulário
+            document.getElementById('formInserirDados').reset();
+
+            // Redirecionar para dashboard após 3 segundos
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 3000);
+        } else {
+            mostrarResultado('erro', result.message);
+        }
+
+    } catch (error) {
+        mostrarResultado('erro', 'Erro ao salvar dados: ' + error.message);
+    }
+});
+
+function mostrarResultado(tipo, mensagem, dados = null) {
+    const resultado = document.getElementById('resultado');
+
+    if (tipo === 'sucesso') {
+        resultado.innerHTML = `
+            <div class="alert alert-success alert-dismissible fade show">
+                <h5><i class="fas fa-check-circle"></i> Sucesso!</h5>
+                <p>${mensagem}</p>
+                ${dados && dados.alerts_count > 0 ?
+                    `<p><i class="fas fa-exclamation-triangle"></i> ${dados.alerts_count} alerta(s) detectado(s)</p>`
+                    : ''}
+                <p class="mb-0"><i class="fas fa-redo"></i> Redirecionando para dashboard...</p>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+    } else if (tipo === 'erro') {
+        resultado.innerHTML = `
+            <div class="alert alert-danger alert-dismissible fade show">
+                <h5><i class="fas fa-times-circle"></i> Erro</h5>
+                <p>${mensagem}</p>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+    } else if (tipo === 'processando') {
+        resultado.innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-spinner fa-spin"></i> ${mensagem}
+            </div>
+        `;
+    }
+}
+</script>
+{% endblock %}

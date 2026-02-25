@@ -1,0 +1,39 @@
+alerts:
+  peak_generation:
+    enabled: true
+    threshold_percent: 80
+    severity: "info"
+
+  zero_generation:
+    enabled: true
+    daylight_hours: [8, 9, 10, 11, 12, 13, 14, 15, 16, 17]
+    severity: "critical"
+
+  power_drop:
+    enabled: true
+    threshold_percent: 50
+    comparison_window_days: 30
+    severity: "warning"
+
+  system_offline:
+    enabled: true
+    timeout_minutes: 120
+    severity: "critical"
+
+  hardware_alarms:
+    enabled: true
+    severity: "warning"
+
+  ecu_alarm:
+    enabled: true
+    severity: "critical"
+
+  inverter_fault:
+    enabled: true
+    min_system_kwh: 0.3   # Só verifica se o sistema gerou pelo menos este valor hoje
+    severity: "warning"
+
+  low_generation_daylight:
+    enabled: true
+    min_hour: 11          # Só alerta após as 11h
+    severity: "critical"

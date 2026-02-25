@@ -1,0 +1,550 @@
+{% extends "base.html" %}
+{% block title %}Configurações — Monitoramento Solar{% endblock %}
+
+{% block extra_css %}
+<style>
+@media (max-width: 767.98px) {
+    /* Formulário de destinatários: empilha no mobile */
+    #tab-recipients .row.g-2 > [class*="col-md"] { flex: 0 0 100%; max-width: 100%; }
+    /* Botões de ação empilhados */
+    .d-flex.gap-2.flex-wrap > .btn { width: 100%; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-2">
+    <div class="col-12">
+        <h5 class="fw-bold mb-0"><i class="fas fa-cog text-secondary"></i> Configurações</h5>
+        <p class="text-muted small mb-0">Configurações do sistema de monitoramento solar.</p>
+    </div>
+</div>
+
+<!-- Abas com scroll horizontal no mobile -->
+<div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+<ul class="nav nav-tabs mb-3 flex-nowrap" id="configTabs" role="tablist" style="min-width: max-content;">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-api">
+        <i class="fas fa-plug"></i> <span class="d-none d-sm-inline">API </span>APSystems</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-email">
+        <i class="fas fa-envelope"></i> Email</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-recipients">
+        <i class="fas fa-users"></i> <span class="d-none d-sm-inline">Destinatários</span><span class="d-sm-none">Dest.</span></a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-scheduler">
+        <i class="fas fa-clock"></i> <span class="d-none d-sm-inline">Agendamentos</span><span class="d-sm-none">Agenda</span></a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-system">
+        <i class="fas fa-server"></i> Sistema</a></li>
+</ul>
+</div>
+
+<div class="tab-content">
+
+    <!-- ── API APSystems ────────────────────────────────────────────────── -->
+    <div class="tab-pane fade show active" id="tab-api">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-plug"></i> Credenciais APSystems OpenAPI</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-4">
+                    Credenciais obtidas no portal APSystems EMA Manager → Conta → Acesso API.
+                </p>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">App ID</label>
+                        <input type="text" class="form-control font-monospace" id="apAppId" placeholder="2c9f934a...">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">App Secret</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control font-monospace" id="apAppSecret" placeholder="Manter em branco para não alterar">
+                            <button class="btn btn-outline-secondary" type="button" onclick="toggleVisibility('apAppSecret')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">System ID (SID)</label>
+                        <input type="text" class="form-control font-monospace" id="apSid" placeholder="E19H368434753865">
+                        <div class="form-text">ID do sistema/instalação na plataforma APSystems.</div>
+                    </div>
+                </div>
+                <div class="mt-4 d-flex gap-2">
+                    <button class="btn btn-primary" onclick="saveSection('apsystems')">
+                        <i class="fas fa-save"></i> Salvar Credenciais
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="testApiConnection()">
+                        <i class="fas fa-wifi"></i> Testar Conexão
+                    </button>
+                </div>
+                <div id="feedback-api" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Email SMTP ────────────────────────────────────────────────────── -->
+    <div class="tab-pane fade" id="tab-email">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="fas fa-envelope"></i> Configuração SMTP — Gmail</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info small py-2 mb-4">
+                    <i class="fas fa-info-circle"></i>
+                    Use uma <strong>Senha de App</strong> gerada em
+                    <a href="https://myaccount.google.com/apppasswords" target="_blank">myaccount.google.com/apppasswords</a>
+                    (requer verificação em duas etapas ativa).
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Servidor SMTP</label>
+                        <input type="text" class="form-control" id="smtpHost" value="smtp.gmail.com" readonly>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label fw-semibold">Porta</label>
+                        <input type="number" class="form-control" id="smtpPort" value="587" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Email remetente (Gmail)</label>
+                        <input type="email" class="form-control" id="cfgSenderEmail" placeholder="seu@gmail.com">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Senha de App Google</label>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="cfgSenderPassword" placeholder="Manter em branco para não alterar">
+                            <button class="btn btn-outline-secondary" type="button" onclick="toggleVisibility('cfgSenderPassword')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 d-flex gap-2 flex-wrap">
+                    <button class="btn btn-primary" onclick="saveEmailConfig()">
+                        <i class="fas fa-save"></i> Salvar Configuração
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="sendTestEmail()">
+                        <i class="fas fa-paper-plane"></i> Enviar Email Teste
+                    </button>
+                    <button class="btn btn-outline-success" onclick="sendDailyReport()">
+                        <i class="fas fa-chart-bar"></i> Enviar Relatório Agora
+                    </button>
+                </div>
+                <div id="feedback-email" class="mt-3"></div>
+
+                <hr class="my-4">
+                <h6 class="text-muted fw-bold">Como gerar a Senha de App Gmail</h6>
+                <ol class="small text-muted">
+                    <li>Acesse <a href="https://myaccount.google.com/security" target="_blank">myaccount.google.com/security</a></li>
+                    <li>Ative a <strong>Verificação em duas etapas</strong></li>
+                    <li>Em <strong>Senhas de app</strong>, selecione "Outro (nome personalizado)"</li>
+                    <li>Digite "Monitoramento Solar" e clique em <strong>Gerar</strong></li>
+                    <li>Copie a senha de 16 caracteres gerada e cole no campo acima</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Destinatários ─────────────────────────────────────────────────── -->
+    <div class="tab-pane fade" id="tab-recipients">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="fas fa-users"></i> Destinatários de Alertas e Relatórios</h5>
+            </div>
+            <div class="card-body">
+                <!-- Formulário de adição -->
+                <div class="row g-2 align-items-end mb-4">
+                    <div class="col-12 col-md-3">
+                        <label class="form-label fw-semibold">Nome</label>
+                        <input type="text" class="form-control form-control-sm" id="newRecipientName" placeholder="Nome completo">
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label fw-semibold">Email</label>
+                        <input type="email" class="form-control form-control-sm" id="newRecipientEmail" placeholder="email@exemplo.com">
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="newRecipientAlerts" checked>
+                            <label class="form-check-label" for="newRecipientAlerts">Alertas</label>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="newRecipientReports" checked>
+                            <label class="form-check-label" for="newRecipientReports">Relatórios</label>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-1">
+                        <button class="btn btn-success btn-sm w-100" onclick="addRecipient()">
+                            <i class="fas fa-plus"></i> Adicionar
+                        </button>
+                    </div>
+                </div>
+                <div id="feedback-recipients" class="mb-3"></div>
+
+                <!-- Tabela -->
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nome</th>
+                                <th>Email</th>
+                                <th class="text-center">Alertas</th>
+                                <th class="text-center">Relatórios</th>
+                                <th class="text-center">Ativo</th>
+                                <th class="text-center">Cadastrado em</th>
+                                <th class="text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recipientsBody">
+                            <tr><td colspan="7" class="text-center text-muted">Carregando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Agendamentos ──────────────────────────────────────────────────── -->
+    <div class="tab-pane fade" id="tab-scheduler">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-clock"></i> Agendamentos (Cron)</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning small py-2 mb-4">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Alterações nos agendamentos requerem <strong>reinicialização do scheduler (main.py)</strong> para entrar em vigor.
+                    Use a sintaxe <a href="https://crontab.guru" target="_blank">cron</a> padrão.
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Coleta de Dados</label>
+                        <input type="text" class="form-control font-monospace" id="scCollection" placeholder="0 8-17 * * *">
+                        <div class="form-text">Horário de coleta da API APSystems.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Resumo Vespertino (Email 17h)</label>
+                        <input type="text" class="form-control font-monospace" id="scEveningSummary" placeholder="0 17 * * *">
+                        <div class="form-text">Email de resumo ao fim do dia de geração.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Cálculo de Estatísticas</label>
+                        <input type="text" class="form-control font-monospace" id="scStatistics" placeholder="55 23 * * *">
+                        <div class="form-text">Relatório diário por email e cálculo de totais.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Limpeza de Dados Antigos</label>
+                        <input type="text" class="form-control font-monospace" id="scCleanup" placeholder="0 2 * * 0">
+                        <div class="form-text">Remove dados com mais de 6 meses e otimiza o banco.</div>
+                    </div>
+                </div>
+                <div class="mt-4 d-flex gap-2">
+                    <button class="btn btn-warning" onclick="saveSection('scheduler')">
+                        <i class="fas fa-save"></i> Salvar Agendamentos
+                    </button>
+                </div>
+                <div id="feedback-scheduler" class="mt-3"></div>
+
+                <!-- Referência cron -->
+                <hr class="my-4">
+                <h6 class="text-muted fw-bold">Referência Cron</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered small">
+                        <thead class="table-light"><tr><th>Campo</th><th>Valores</th><th>Exemplo</th></tr></thead>
+                        <tbody>
+                            <tr><td>Minuto</td><td>0–59</td><td><code>30</code></td></tr>
+                            <tr><td>Hora</td><td>0–23</td><td><code>8-17</code> (faixa), <code>*/2</code> (a cada 2h)</td></tr>
+                            <tr><td>Dia do mês</td><td>1–31</td><td><code>*</code> (todos)</td></tr>
+                            <tr><td>Mês</td><td>1–12</td><td><code>*</code></td></tr>
+                            <tr><td>Dia da semana</td><td>0–6 (Dom=0)</td><td><code>1-5</code> (seg–sex)</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Sistema ───────────────────────────────────────────────────────── -->
+    <div class="tab-pane fade" id="tab-system">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0"><i class="fas fa-server"></i> Configurações do Sistema</h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info small py-2 mb-4">
+                    <i class="fas fa-info-circle"></i>
+                    Alterações na porta e no modo debug requerem reinicialização do servidor web.
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Porta do servidor web</label>
+                        <input type="number" class="form-control" id="sysPort" placeholder="5000" min="1024" max="65535">
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="sysDebug">
+                            <label class="form-check-label fw-semibold" for="sysDebug">Modo Debug</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Nível de Log</label>
+                        <select class="form-select" id="sysLogLevel">
+                            <option value="DEBUG">DEBUG</option>
+                            <option value="INFO" selected>INFO</option>
+                            <option value="WARNING">WARNING</option>
+                            <option value="ERROR">ERROR</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-4 d-flex gap-2">
+                    <button class="btn btn-secondary" onclick="saveSection('system')">
+                        <i class="fas fa-save"></i> Salvar Configuração
+                    </button>
+                </div>
+                <div id="feedback-system" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+
+</div><!-- end tab-content -->
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Utilitários ────────────────────────────────────────────────────────────
+function toggleVisibility(id) {
+    const el = document.getElementById(id);
+    el.type = el.type === 'password' ? 'text' : 'password';
+}
+
+function feedback(section, msg, type) {
+    const el = document.getElementById(`feedback-${section}`);
+    el.innerHTML = `<div class="alert alert-${type} py-2">${msg}</div>`;
+    if (type === 'success') setTimeout(() => { el.innerHTML = ''; }, 5000);
+}
+
+// ── Carrega todas as configs ───────────────────────────────────────────────
+async function loadAll() {
+    try {
+        const res  = await fetch('/api/config/all');
+        const data = await res.json();
+        if (data.status !== 'success') return;
+
+        // APSystems
+        document.getElementById('apAppId').value  = data.apsystems.app_id || '';
+        document.getElementById('apSid').value     = data.apsystems.sid   || '';
+
+        // Email
+        document.getElementById('cfgSenderEmail').value = data.email.sender_email || '';
+
+        // Scheduler
+        document.getElementById('scCollection').value     = data.scheduler.collection_interval      || '';
+        document.getElementById('scEveningSummary').value = data.scheduler.evening_summary_interval || '';
+        document.getElementById('scStatistics').value     = data.scheduler.statistics_interval      || '';
+        document.getElementById('scCleanup').value        = data.scheduler.cleanup_interval         || '';
+
+        // Sistema
+        document.getElementById('sysPort').value  = data.web.port  || 5000;
+        document.getElementById('sysDebug').checked = data.web.debug || false;
+        document.getElementById('sysLogLevel').value = data.logging.level || 'INFO';
+    } catch (e) { console.error('loadAll:', e); }
+}
+
+// ── Salva seção ────────────────────────────────────────────────────────────
+async function saveSection(section) {
+    let url, body;
+
+    if (section === 'apsystems') {
+        url  = '/api/config/apsystems';
+        body = {
+            app_id:     document.getElementById('apAppId').value.trim(),
+            app_secret: document.getElementById('apAppSecret').value.trim(),
+            sid:        document.getElementById('apSid').value.trim()
+        };
+    } else if (section === 'scheduler') {
+        url  = '/api/config/scheduler';
+        body = {
+            collection_interval:      document.getElementById('scCollection').value.trim(),
+            evening_summary_interval: document.getElementById('scEveningSummary').value.trim(),
+            statistics_interval:      document.getElementById('scStatistics').value.trim(),
+            cleanup_interval:         document.getElementById('scCleanup').value.trim()
+        };
+    } else if (section === 'system') {
+        url  = '/api/config/system';
+        body = {
+            web_port:  document.getElementById('sysPort').value,
+            web_debug: document.getElementById('sysDebug').checked,
+            log_level: document.getElementById('sysLogLevel').value
+        };
+    }
+
+    try {
+        feedback(section, '<i class="fas fa-spinner fa-spin"></i> Salvando...', 'info');
+        const res  = await fetch(url, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        feedback(section,
+            `<i class="fas fa-${data.status === 'success' ? 'check' : 'times'}"></i> ${data.message}`,
+            data.status === 'success' ? 'success' : 'danger');
+    } catch (e) { feedback(section, 'Erro ao salvar.', 'danger'); }
+}
+
+// ── Testar conexão API ─────────────────────────────────────────────────────
+async function testApiConnection() {
+    feedback('api', '<i class="fas fa-spinner fa-spin"></i> Testando conexão...', 'info');
+    try {
+        const res  = await fetch('/api/current');
+        const data = await res.json();
+        if (data.status === 'success' || data.energy_today !== undefined) {
+            feedback('api', '<i class="fas fa-check"></i> Conexão com APSystems OK — API respondendo normalmente.', 'success');
+        } else {
+            feedback('api', `<i class="fas fa-times"></i> Sem dados: ${data.message || 'Verifique as credenciais.'}`, 'warning');
+        }
+    } catch (e) { feedback('api', 'Erro ao testar conexão.', 'danger'); }
+}
+
+// ── Email ──────────────────────────────────────────────────────────────────
+async function saveEmailConfig() {
+    const body = {
+        sender_email:    document.getElementById('cfgSenderEmail').value.trim(),
+        sender_password: document.getElementById('cfgSenderPassword').value.trim(),
+    };
+    if (!body.sender_email) return feedback('email', 'Informe o email remetente.', 'warning');
+    feedback('email', '<i class="fas fa-spinner fa-spin"></i> Salvando...', 'info');
+    try {
+        const res  = await fetch('/api/email/config', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        feedback('email',
+            `<i class="fas fa-${data.status === 'success' ? 'check' : 'times'}"></i> ${data.message}`,
+            data.status === 'success' ? 'success' : 'danger');
+        if (data.status === 'success') document.getElementById('cfgSenderPassword').value = '';
+    } catch (e) { feedback('email', 'Erro ao salvar.', 'danger'); }
+}
+
+async function sendTestEmail() {
+    feedback('email', '<i class="fas fa-spinner fa-spin"></i> Enviando email de teste...', 'info');
+    try {
+        const res  = await fetch('/api/email/test', { method: 'POST' });
+        const data = await res.json();
+        feedback('email',
+            `<i class="fas fa-${data.status === 'success' ? 'check' : 'times'}"></i> ${data.message}`,
+            data.status === 'success' ? 'success' : 'danger');
+    } catch (e) { feedback('email', 'Erro ao enviar.', 'danger'); }
+}
+
+async function sendDailyReport() {
+    feedback('email', '<i class="fas fa-spinner fa-spin"></i> Gerando e enviando relatório...', 'info');
+    try {
+        const res  = await fetch('/api/email/report', { method: 'POST' });
+        const data = await res.json();
+        feedback('email',
+            `<i class="fas fa-${data.status === 'success' ? 'check' : 'times'}"></i> ${data.message}`,
+            data.status === 'success' ? 'success' : 'danger');
+    } catch (e) { feedback('email', 'Erro ao enviar relatório.', 'danger'); }
+}
+
+// ── Destinatários ──────────────────────────────────────────────────────────
+function _recipientFeedback(msg, type) {
+    const el = document.getElementById('feedback-recipients');
+    el.innerHTML = `<div class="alert alert-${type} py-2">${msg}</div>`;
+    setTimeout(() => { el.innerHTML = ''; }, 5000);
+}
+
+async function loadRecipients() {
+    try {
+        const res  = await fetch('/api/email/recipients');
+        const data = await res.json();
+        const tbody = document.getElementById('recipientsBody');
+        if (!data.recipients || data.recipients.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-3">Nenhum destinatário cadastrado</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.recipients.map(r => `
+        <tr class="${r.active ? '' : 'table-secondary text-muted'}">
+            <td>${r.name}</td>
+            <td><code>${r.email}</code></td>
+            <td class="text-center">
+                <div class="form-check form-switch d-flex justify-content-center mb-0">
+                    <input class="form-check-input" type="checkbox" ${r.receive_alerts ? 'checked' : ''}
+                           onchange="updateRecipient(${r.id}, {receive_alerts: this.checked})">
+                </div>
+            </td>
+            <td class="text-center">
+                <div class="form-check form-switch d-flex justify-content-center mb-0">
+                    <input class="form-check-input" type="checkbox" ${r.receive_reports ? 'checked' : ''}
+                           onchange="updateRecipient(${r.id}, {receive_reports: this.checked})">
+                </div>
+            </td>
+            <td class="text-center">
+                <div class="form-check form-switch d-flex justify-content-center mb-0">
+                    <input class="form-check-input" type="checkbox" ${r.active ? 'checked' : ''}
+                           onchange="updateRecipient(${r.id}, {active: this.checked})">
+                </div>
+            </td>
+            <td class="text-center text-muted small">${r.created_at}</td>
+            <td class="text-center">
+                <button class="btn btn-outline-danger btn-sm py-0 px-2"
+                        onclick="deleteRecipient(${r.id}, '${r.email}')">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>`).join('');
+    } catch (e) { console.error('loadRecipients:', e); }
+}
+
+async function addRecipient() {
+    const name    = document.getElementById('newRecipientName').value.trim();
+    const email   = document.getElementById('newRecipientEmail').value.trim();
+    const alerts  = document.getElementById('newRecipientAlerts').checked;
+    const reports = document.getElementById('newRecipientReports').checked;
+    if (!name || !email) return _recipientFeedback('Preencha nome e email.', 'warning');
+    try {
+        const res  = await fetch('/api/email/recipients', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name, email, receive_alerts: alerts, receive_reports: reports})
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+            document.getElementById('newRecipientName').value  = '';
+            document.getElementById('newRecipientEmail').value = '';
+            _recipientFeedback(`<i class="fas fa-check"></i> ${name} &lt;${email}&gt; cadastrado.`, 'success');
+            loadRecipients();
+        } else {
+            _recipientFeedback(`<i class="fas fa-times"></i> ${data.message}`, 'danger');
+        }
+    } catch (e) { _recipientFeedback('Erro ao cadastrar.', 'danger'); }
+}
+
+async function updateRecipient(id, patch) {
+    try {
+        await fetch(`/api/email/recipients/${id}`, {
+            method: 'PUT', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(patch)
+        });
+        loadRecipients();
+    } catch (e) { console.error('updateRecipient:', e); }
+}
+
+async function deleteRecipient(id, email) {
+    if (!confirm(`Remover ${email} da lista de destinatários?`)) return;
+    try {
+        const res  = await fetch(`/api/email/recipients/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.status === 'success') {
+            _recipientFeedback('Destinatário removido.', 'success');
+            loadRecipients();
+        }
+    } catch (e) { console.error('deleteRecipient:', e); }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    loadAll();
+    loadRecipients();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Monitoramento Solar{% endblock %}</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --info-color: #17a2b8;
+        }
+
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #20c997 100%);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-card {
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .alert-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+        }
+
+        .refresh-indicator {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            background: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .status-online {
+            color: var(--primary-color);
+        }
+
+        .status-offline {
+            color: var(--danger-color);
+        }
+
+        /* ── Mobile bottom navigation ───────────────────────────────────────── */
+        #mobileBottomNav {
+            z-index: 1050;
+            background: #fff;
+            border-top: 1px solid #dee2e6;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+        }
+        .mob-nav-item {
+            display: flex; flex-direction: column; align-items: center;
+            text-decoration: none; color: #6c757d;
+            font-size: 10px; padding: 6px 8px; flex: 1;
+            background: none; border: none; cursor: pointer;
+            transition: color .15s;
+        }
+        .mob-nav-item i { font-size: 19px; margin-bottom: 2px; }
+        .mob-nav-item.active, .mob-nav-item:hover { color: var(--primary-color); }
+        .mob-nav-item.mob-collect { color: #e0a800; }
+        .mob-nav-item.mob-collect:hover { color: #c69500; }
+
+        /* ── Responsive adjustments ─────────────────────────────────────────── */
+        @media (max-width: 991.98px) {
+            body { padding-bottom: 68px; }
+
+            /* Compact stat cards */
+            .stat-value { font-size: 1.65rem; }
+            .stat-card { padding: 14px 8px; }
+            .stat-card .fa-2x { font-size: 1.4em !important; margin-bottom: 8px !important; }
+            .stat-label { font-size: 0.78rem; }
+
+            /* Tighter page padding */
+            .container-fluid.mt-4 { padding-left: 8px !important; padding-right: 8px !important; }
+            .container-fluid.mt-4 > .row > [class*="col-"] { padding-left: 6px; padding-right: 6px; }
+
+            /* Navbar: hide countdown and update text on mobile */
+            #countdown { display: none !important; }
+            #lastUpdate { font-size: 0.75rem; }
+
+            /* Cards margin */
+            .mb-4 { margin-bottom: 1rem !important; }
+
+            /* Chart heights on mobile */
+            .chart-container { height: 220px; }
+
+            /* Reduce card hover lift on mobile (performance) */
+            .card:hover { transform: none; }
+
+            /* Refresh indicator position */
+            .refresh-indicator { top: 60px; right: 10px; padding: 6px 14px; font-size: 0.85rem; }
+
+            /* Config tabs: scroll horizontally */
+            .nav-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+            .nav-tabs::-webkit-scrollbar { height: 0; }
+            .nav-tabs .nav-link { white-space: nowrap; font-size: 0.85rem; padding: .4rem .75rem; }
+
+            /* Insight profile grid */
+            .profile-grid { grid-template-columns: repeat(3, 1fr) !important; }
+
+            /* KPI card values smaller */
+            .kpi-value { font-size: 1.35rem !important; }
+            .kpi-label { font-size: 0.65rem !important; }
+        }
+
+        @media (max-width: 575.98px) {
+            .stat-value { font-size: 1.35rem; }
+            .stat-card { padding: 12px 6px; }
+            .kpi-value { font-size: 1.15rem !important; }
+            .profile-grid { grid-template-columns: repeat(2, 1fr) !important; }
+            /* Inverter chart height */
+            #inverterChart { max-height: 240px; }
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-dark navbar-expand-lg">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-solar-panel"></i> Monitoramento Solar
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto align-items-center gap-2">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <span class="nav-link" id="lastUpdate">Atualizado: --:--</span>
+                    </li>
+                    <li class="nav-item">
+                        <span class="nav-link text-white-50 small" id="countdown">Próx. atualização: --</span>
+                    </li>
+                    <li class="nav-item">
+                        <button class="btn btn-outline-light btn-sm" onclick="fullUpdate()">
+                            <i class="fas fa-sync-alt"></i> Atualizar agora
+                        </button>
+                    </li>
+                    <li class="nav-item d-none d-lg-flex">
+                        <button class="btn btn-warning btn-sm fw-semibold" id="btnCollect" onclick="triggerCollect()">
+                            <i class="fas fa-download"></i> Coletar Dados
+                        </button>
+                    </li>
+                    <li class="nav-item d-none d-lg-flex">
+                        <a class="btn btn-outline-light btn-sm" href="/insights">
+                            <i class="fas fa-lightbulb"></i> Insights
+                        </a>
+                    </li>
+                    <li class="nav-item d-none d-lg-flex">
+                        <a class="btn btn-outline-light btn-sm" href="/config">
+                            <i class="fas fa-cog"></i> Configurações
+                        </a>
+                    </li>
+                    <!-- Mobile: nav links inside hamburger menu -->
+                    <li class="nav-item d-lg-none">
+                        <a class="nav-link" href="/insights"><i class="fas fa-lightbulb me-1"></i>Insights</a>
+                    </li>
+                    <li class="nav-item d-lg-none">
+                        <a class="nav-link" href="/config"><i class="fas fa-cog me-1"></i>Configurações</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Refresh Indicator -->
+    <div class="refresh-indicator" id="refreshIndicator">
+        <i class="fas fa-sync fa-spin"></i> Atualizando...
+    </div>
+
+    <!-- Main Content -->
+    <div class="container-fluid mt-4">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-center py-4 mt-5">
+        <p class="text-muted">Sistema de Monitoramento Solar APSystems &copy; 2026</p>
+    </footer>
+
+    <!-- Mobile bottom navigation (visible only on xs/sm/md) -->
+    <nav class="d-lg-none fixed-bottom" id="mobileBottomNav">
+        <div class="d-flex">
+            <a href="/" class="mob-nav-item {% if request.path == '/' %}active{% endif %}">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="/insights" class="mob-nav-item {% if request.path == '/insights' %}active{% endif %}">
+                <i class="fas fa-lightbulb"></i>
+                <span>Insights</span>
+            </a>
+            <button class="mob-nav-item mob-collect" onclick="triggerCollect()" id="btnCollectMobile">
+                <i class="fas fa-download" id="mobCollectIcon"></i>
+                <span id="mobCollectLabel">Coletar</span>
+            </button>
+            <a href="/config" class="mob-nav-item {% if request.path == '/config' %}active{% endif %}">
+                <i class="fas fa-cog"></i>
+                <span>Config</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+    let _collectPollTimer = null;
+
+    function _setCollectState(state) {
+        // state: 'idle' | 'running' | 'waiting' | 'success' | 'error'
+        const btn  = document.getElementById('btnCollect');
+        const btnM = document.getElementById('btnCollectMobile');
+        const icon = document.getElementById('mobCollectIcon');
+        const lbl  = document.getElementById('mobCollectLabel');
+
+        const states = {
+            idle:    { desktop: '<i class="fas fa-download"></i> Coletar Dados', mobIcon: 'fas fa-download', mobLbl: 'Coletar',   cls: 'btn-warning' },
+            running: { desktop: '<i class="fas fa-spinner fa-spin"></i> Coletando...', mobIcon: 'fas fa-spinner fa-spin', mobLbl: 'Coletando', cls: null },
+            waiting: { desktop: '<i class="fas fa-clock"></i> Em andamento...', mobIcon: 'fas fa-clock', mobLbl: 'Aguarde',  cls: null },
+            success: { desktop: '<i class="fas fa-check"></i> Concluído!',      mobIcon: 'fas fa-check',   mobLbl: 'Pronto!',  cls: 'btn-success' },
+            error:   { desktop: '<i class="fas fa-exclamation-triangle"></i> Erro', mobIcon: 'fas fa-exclamation-triangle', mobLbl: 'Erro', cls: 'btn-danger' },
+        };
+        const s = states[state] || states.idle;
+        const disabled = (state === 'running' || state === 'waiting');
+
+        if (btn) {
+            btn.disabled = disabled;
+            btn.innerHTML = s.desktop;
+            if (s.cls) {
+                btn.className = btn.className
+                    .replace('btn-warning','').replace('btn-success','').replace('btn-danger','')
+                    .trim() + ' ' + s.cls;
+            }
+        }
+        if (btnM) btnM.disabled = disabled;
+        if (icon) icon.className = s.mobIcon;
+        if (lbl)  lbl.textContent = s.mobLbl;
+    }
+
+    async function triggerCollect() {
+        _setCollectState('running');
+        try {
+            const res = await fetch('/api/collect', { method: 'POST' });
+            if (res.status === 409) { _setCollectState('waiting'); }
+            _collectPollTimer = setInterval(pollCollectStatus, 3000);
+        } catch (e) {
+            _setCollectState('idle');
+            alert('Erro ao iniciar coleta.');
+        }
+    }
+
+    async function pollCollectStatus() {
+        try {
+            const res  = await fetch('/api/collect/status');
+            const data = await res.json();
+            if (!data.running) {
+                clearInterval(_collectPollTimer);
+                _collectPollTimer = null;
+                if (data.last_result === 'success') {
+                    _setCollectState('success');
+                    if (typeof fullUpdate === 'function') fullUpdate();
+                    setTimeout(() => _setCollectState('idle'), 3000);
+                } else {
+                    _setCollectState('error');
+                    setTimeout(() => _setCollectState('idle'), 4000);
+                }
+            }
+        } catch (e) { /* ignorar erros de polling */ }
+    }
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

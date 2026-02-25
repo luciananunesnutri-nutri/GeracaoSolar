@@ -1,0 +1,1094 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Monitoramento Solar{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Inversor summary table: UID truncado em mobile */
+@media (max-width: 575.98px) {
+    #inverterSummaryBody td:first-child,
+    #panelsTableBody td:first-child {
+        font-size: 0.72rem;
+        max-width: 90px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    #inverterSummaryBody td,
+    #panelsTableBody td { font-size: 0.8rem; padding: 4px 6px; }
+    /* Email collapse header menor */
+    #emailConfigBody .card-body { padding: 10px; }
+}
+/* Balanço medidor: compacto em mobile */
+@media (max-width: 767.98px) {
+    #meterSection .fs-4 { font-size: 1.2rem !important; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+
+<!-- Cards: dados do dia -->
+<div class="row g-2 g-md-3 mb-1">
+    <div class="col-6 col-md-3">
+        <div class="card stat-card h-100">
+            <i class="fas fa-bolt fa-2x mb-3 text-warning"></i>
+            <div class="stat-value" id="currentPower">-- W</div>
+            <div class="stat-label">Potência Atual</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card h-100">
+            <i class="fas fa-sun fa-2x mb-3 text-primary"></i>
+            <div class="stat-value" id="energyToday">-- kWh</div>
+            <div class="stat-label">Geração Hoje</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card h-100">
+            <i class="fas fa-arrow-up fa-2x mb-3 text-success"></i>
+            <div class="stat-value" id="peakPower">-- W</div>
+            <div class="stat-label">Pico Hoje</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card stat-card h-100">
+            <i class="fas fa-chart-line fa-2x mb-3 text-info"></i>
+            <div class="stat-value" id="totalEnergy">-- kWh</div>
+            <div class="stat-label">Total Gerado</div>
+        </div>
+    </div>
+</div>
+
+<!-- Cards: mês / ano / lifetime -->
+<div class="row g-2 g-md-3 mt-0 mb-1">
+    <div class="col-6 col-md-4">
+        <div class="card stat-card h-100">
+            <i class="fas fa-calendar-alt fa-2x mb-3 text-secondary"></i>
+            <div class="stat-value" id="energyMonth">-- kWh</div>
+            <div class="stat-label">Geração no Mês</div>
+            <div id="energyMonthPrevYear" class="text-muted mt-1" style="font-size:0.75rem; min-height:1.1em;"></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="card stat-card h-100">
+            <i class="fas fa-calendar fa-2x mb-3 text-warning"></i>
+            <div class="stat-value" id="energyYear">-- kWh</div>
+            <div class="stat-label">Geração no Ano</div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="card stat-card h-100">
+            <i class="fas fa-infinity fa-2x mb-3 text-success"></i>
+            <div class="stat-value" id="energyLifetime">-- kWh</div>
+            <div class="stat-label">Total Acumulado</div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráfico diário (minutely / hourly) -->
+<div class="row mt-2">
+    <div class="col-12 mb-3">
+        <div class="card">
+            <div class="card-header bg-primary text-white px-2 px-md-3 py-2">
+                <!-- Linha 1: título + navegação de datas -->
+                <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+                    <h6 class="mb-0 fw-semibold"><i class="fas fa-chart-area"></i> <span class="d-none d-sm-inline">Geração do Dia</span><span class="d-sm-none">Geração</span></h6>
+                    <div class="d-flex align-items-center gap-1">
+                        <button class="btn btn-outline-light btn-sm px-2" id="btnPrevDay" onclick="navigateDay(-1)" disabled title="Dia anterior">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <span id="chartDateLabel" class="fw-semibold" style="font-size:0.8rem;min-width:110px;text-align:center">--</span>
+                        <button class="btn btn-outline-light btn-sm px-2" id="btnNextDay" onclick="navigateDay(1)" disabled title="Próximo dia">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                    <!-- Resolução (compacto) -->
+                    <div class="btn-group btn-group-sm" id="dailyResolutionBtns">
+                        <button type="button" class="btn btn-outline-light btn-sm" onclick="setDailyResolution('hourly')" title="Visão horária">
+                            <i class="fas fa-clock d-sm-none"></i><span class="d-none d-sm-inline">Horas</span>
+                        </button>
+                        <button type="button" class="btn btn-light active btn-sm" onclick="setDailyResolution('minutely')" title="Visão minutely">
+                            <i class="fas fa-wave-square d-sm-none"></i><span class="d-none d-sm-inline">Minutos</span>
+                        </button>
+                    </div>
+                </div>
+                <small id="chartResolution" class="text-white-50 d-none d-md-inline" style="font-size:0.72rem"></small>
+            </div>
+            <div class="card-body p-2 p-md-3" style="padding-bottom: 6px !important;">
+                <div style="overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;">
+                    <div id="dailyChartWrapper" style="position: relative; height: 260px; min-width: 560px;">
+                        <canvas id="dailyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Balanço energético (medidor) -->
+<div class="row" id="meterSection" style="display:none">
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-balance-scale"></i> Balanço Energético — Hoje</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 col-md-3 mb-3">
+                        <div class="fw-bold text-success fs-4" id="meterProduced">--</div>
+                        <div class="text-muted small">Produzido (kWh)</div>
+                    </div>
+                    <div class="col-6 col-md-3 mb-3">
+                        <div class="fw-bold text-primary fs-4" id="meterConsumed">--</div>
+                        <div class="text-muted small">Consumido (kWh)</div>
+                    </div>
+                    <div class="col-6 col-md-3 mb-3">
+                        <div class="fw-bold text-warning fs-4" id="meterExported">--</div>
+                        <div class="text-muted small">Exportado Rede (kWh)</div>
+                    </div>
+                    <div class="col-6 col-md-3 mb-3">
+                        <div class="fw-bold text-danger fs-4" id="meterImported">--</div>
+                        <div class="text-muted small">Importado Rede (kWh)</div>
+                    </div>
+                </div>
+                <!-- Totais do mês -->
+                <hr>
+                <h6 class="text-muted">Mês atual</h6>
+                <div class="row text-center">
+                    <div class="col-6 col-md-3">
+                        <small class="text-success fw-bold" id="meterMonthProduced">--</small>
+                        <div class="text-muted" style="font-size:0.75rem">Produzido</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <small class="text-primary fw-bold" id="meterMonthConsumed">--</small>
+                        <div class="text-muted" style="font-size:0.75rem">Consumido</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <small class="text-warning fw-bold" id="meterMonthExported">--</small>
+                        <div class="text-muted" style="font-size:0.75rem">Exportado</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <small class="text-danger fw-bold" id="meterMonthImported">--</small>
+                        <div class="text-muted" style="font-size:0.75rem">Importado</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Performance dos painéis e Inversores por canal -->
+<div class="row g-2 g-md-3">
+    <div class="col-12 col-md-6 mb-2 mb-md-3">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white py-2">
+                <h6 class="mb-0"><i class="fas fa-solar-panel"></i> Performance dos Painéis</h6>
+            </div>
+            <div class="card-body p-0 p-md-2">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm mb-0" id="panelsTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Painel</th>
+                                <th class="text-end">Média (W)</th>
+                                <th class="text-end">Pico (W)</th>
+                                <th class="text-end">Total (kWh)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="panelsTableBody">
+                            <tr><td colspan="4" class="text-center py-3">Carregando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico por inversor -->
+    <div class="col-12 col-md-6 mb-2 mb-md-3">
+        <div class="card h-100">
+            <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center gap-2 py-2">
+                <h6 class="mb-0"><i class="fas fa-microchip"></i> Geração por Inversor</h6>
+                <div class="btn-group btn-group-sm" role="group" id="inverterPeriodBtns">
+                    <button type="button" class="btn btn-light active" onclick="setInverterPeriod('today')">Hoje</button>
+                    <button type="button" class="btn btn-outline-light" onclick="setInverterPeriod('month')">Mês</button>
+                    <button type="button" class="btn btn-outline-light" onclick="setInverterPeriod('year')">Ano</button>
+                    <button type="button" class="btn btn-outline-light" onclick="setInverterPeriod('lifetime')">Total</button>
+                </div>
+            </div>
+            <div class="card-body p-2">
+                <div style="position:relative; height:280px;">
+                    <canvas id="inverterChart"></canvas>
+                </div>
+                <hr class="my-2">
+                <div class="table-responsive" style="max-height:200px; overflow-y:auto;">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>Inversor</th>
+                                <th class="text-center">Canal</th>
+                                <th class="text-end">Hoje (kWh)</th>
+                                <th class="text-end">Mês (kWh)</th>
+                                <th class="text-end">Ano (kWh)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inverterSummaryBody">
+                            <tr><td colspan="5" class="text-center text-muted">Aguardando dados...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Email: configuração SMTP + cadastro de destinatários -->
+<div class="row mt-1">
+    <div class="col-12 mb-3">
+        <div class="card">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center"
+                 style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#emailConfigBody">
+                <h5 class="mb-0"><i class="fas fa-envelope"></i> Email — Alertas e Relatórios</h5>
+                <div class="d-flex align-items-center gap-3">
+                    <span id="emailStatusBadge" class="badge bg-secondary">Verificando...</span>
+                    <i class="fas fa-chevron-down text-white-50"></i>
+                </div>
+            </div>
+            <div class="collapse" id="emailConfigBody">
+                <div class="card-body">
+
+                    <!-- Configuração SMTP -->
+                    <h6 class="fw-bold text-muted mb-3"><i class="fas fa-cog"></i> Configuração SMTP (Gmail)</h6>
+                    <div class="row g-3 align-items-end mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label fw-semibold">Email remetente (Gmail)</label>
+                            <input type="email" class="form-control" id="cfgSenderEmail" placeholder="seu@gmail.com">
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label fw-semibold">
+                                Senha de app Google
+                                <a href="https://myaccount.google.com/apppasswords" target="_blank"
+                                   class="ms-1 small text-muted"><i class="fas fa-external-link-alt"></i></a>
+                            </label>
+                            <input type="password" class="form-control" id="cfgSenderPassword" placeholder="xxxx xxxx xxxx xxxx">
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-primary w-100" onclick="saveEmailConfig()">
+                                <i class="fas fa-save"></i> Salvar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mb-3">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="sendTestEmail()">
+                            <i class="fas fa-paper-plane"></i> Enviar Teste
+                        </button>
+                        <button class="btn btn-outline-success btn-sm" onclick="sendDailyReport()">
+                            <i class="fas fa-chart-bar"></i> Enviar Relatório Diário
+                        </button>
+                    </div>
+                    <div id="emailFeedback" class="mb-3"></div>
+
+                    <hr>
+
+                    <!-- Cadastro de destinatários -->
+                    <h6 class="fw-bold text-muted mb-3"><i class="fas fa-users"></i> Destinatários</h6>
+                    <div class="row g-2 align-items-end mb-3">
+                        <div class="col-md-4">
+                            <input type="text" class="form-control form-control-sm" id="newRecipientName" placeholder="Nome">
+                        </div>
+                        <div class="col-md-4">
+                            <input type="email" class="form-control form-control-sm" id="newRecipientEmail" placeholder="email@exemplo.com">
+                        </div>
+                        <div class="col-md-2 d-flex gap-2 align-items-center">
+                            <div class="form-check form-switch mb-0" title="Alertas">
+                                <input class="form-check-input" type="checkbox" id="newRecipientAlerts" checked>
+                                <label class="form-check-label small" for="newRecipientAlerts">Alertas</label>
+                            </div>
+                        </div>
+                        <div class="col-md-1 d-flex gap-2 align-items-center">
+                            <div class="form-check form-switch mb-0" title="Relatórios">
+                                <input class="form-check-input" type="checkbox" id="newRecipientReports" checked>
+                                <label class="form-check-label small" for="newRecipientReports">Relatórios</label>
+                            </div>
+                        </div>
+                        <div class="col-md-1">
+                            <button class="btn btn-success btn-sm w-100" onclick="addRecipient()">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0" id="recipientsTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Email</th>
+                                    <th class="text-center">Alertas</th>
+                                    <th class="text-center">Relatórios</th>
+                                    <th class="text-center">Ativo</th>
+                                    <th class="text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recipientsBody">
+                                <tr><td colspan="6" class="text-center text-muted">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="mt-3 p-3 bg-light rounded border small text-muted">
+                        <strong><i class="fas fa-info-circle text-primary"></i> Senha de app Gmail:</strong>
+                        Acesse Google → Segurança → Verificação em duas etapas → <strong>Senhas de app</strong>
+                        e crie uma senha para "Monitoramento Solar".
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alertas do Sistema -->
+<div class="row">
+    <div class="col-12 mb-3">
+        <div class="card" id="alertsCard">
+            <div class="card-header d-flex justify-content-between align-items-center"
+                 id="alertsCardHeader" style="background:#495057;color:white">
+                <h5 class="mb-0">
+                    <i class="fas fa-exclamation-triangle"></i> Alertas do Sistema
+                    <span class="badge bg-danger ms-2" id="alertBadge" style="display:none">0</span>
+                </h5>
+                <button class="btn btn-sm btn-outline-light" onclick="updateAlerts()" title="Atualizar">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+            <div class="card-body p-0" id="alertsTableWrapper">
+                <div class="text-center p-4 text-muted" id="alertsPlaceholder">
+                    <i class="fas fa-spinner fa-spin"></i> Carregando alertas...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let dailyChart = null;
+    let inverterChart = null;
+    let inverterData = null;   // cache dos dados brutos
+    let inverterPeriod = 'today';
+    let dailyResolution = 'minutely';       // 'hourly' | 'minutely'
+    let dailyCache = { hourly: null, minutely: null };  // cache por resolução
+
+    // Navegação por data
+    let availableDates = [];   // YYYY-MM-DD, ordem decrescente (mais recente = índice 0)
+    let selectedDateIdx = 0;
+    let selectedDate = new Date().toISOString().split('T')[0];
+    const CURRENT_INTERVAL = 60;
+    const FULL_INTERVAL    = 5 * 60;
+    let secondsUntilFull = FULL_INTERVAL;
+    let secondsUntilCurrent = CURRENT_INTERVAL;
+
+    // Paleta de cores para até 4 canais
+    const CHANNEL_COLORS = [
+        'rgba(40, 167, 69, 0.85)',   // verde
+        'rgba(23, 162, 184, 0.85)',  // azul
+        'rgba(255, 193, 7, 0.85)',   // amarelo
+        'rgba(220, 53, 69, 0.85)'    // vermelho
+    ];
+
+    // ── Dados atuais ─────────────────────────────────────────────────────────
+    async function updateCurrentData() {
+        try {
+            const response = await fetch('/api/current');
+            const data = await response.json();
+            if (data.status === 'success') {
+                document.getElementById('currentPower').textContent = `${data.current_power.toFixed(0)} W`;
+                document.getElementById('energyToday').textContent  = `${data.energy_today.toFixed(2)} kWh`;
+                document.getElementById('peakPower').textContent    = `${data.peak_today.toFixed(0)} W`;
+                document.getElementById('totalEnergy').textContent  = `${data.energy_total.toFixed(2)} kWh`;
+                const ts = new Date(data.timestamp);
+                document.getElementById('lastUpdate').textContent = `Atualizado: ${ts.toLocaleTimeString('pt-BR')}`;
+            }
+        } catch (e) { console.error('updateCurrentData:', e); }
+    }
+
+    // ── Totais mês / ano / lifetime ──────────────────────────────────────────
+    async function updateEnergyTotals() {
+        try {
+            const res = await fetch('/api/energy/totals');
+            const data = await res.json();
+            if (data.status === 'success') {
+                document.getElementById('energyMonth').textContent    = `${(+data.month_kwh||0).toFixed(2)} kWh`;
+                document.getElementById('energyYear').textContent     = `${(+data.year_kwh||0).toFixed(2)} kWh`;
+                document.getElementById('energyLifetime').textContent = `${(+data.lifetime_kwh||0).toFixed(2)} kWh`;
+            }
+        } catch (e) { console.error('updateEnergyTotals:', e); }
+
+        // Geração do mesmo mês no ano anterior (chamada separada com cache)
+        try {
+            const res = await fetch('/api/energy/prev-year-month');
+            const data = await res.json();
+            const el = document.getElementById('energyMonthPrevYear');
+            if (data.status === 'success') {
+                const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+                const mName = monthNames[data.month - 1];
+                el.textContent = `${mName}/${data.year}: ${(+data.kwh).toFixed(2)} kWh`;
+            } else {
+                el.textContent = '';
+            }
+        } catch (e) { document.getElementById('energyMonthPrevYear').textContent = ''; }
+    }
+
+    // ── Navegação por data ────────────────────────────────────────────────────
+    async function loadAvailableDates() {
+        try {
+            const res = await fetch('/api/available-dates');
+            const data = await res.json();
+            if (data.status !== 'success' || !data.dates.length) return;
+
+            availableDates = data.dates;  // desc: [hoje, ontem, ...]
+            const today = new Date().toISOString().split('T')[0];
+            selectedDateIdx = availableDates.indexOf(today);
+            if (selectedDateIdx === -1) selectedDateIdx = 0;
+            selectedDate = availableDates[selectedDateIdx];
+            updateDateNav();
+        } catch (e) { console.error('loadAvailableDates:', e); }
+    }
+
+    function navigateDay(direction) {
+        // direction: -1 = mais antigo (prev), +1 = mais recente (next)
+        const newIdx = selectedDateIdx + direction;
+        if (newIdx < 0 || newIdx >= availableDates.length) return;
+        selectedDateIdx = newIdx;
+        selectedDate = availableDates[selectedDateIdx];
+        updateDateNav();
+        dailyCache = { hourly: null, minutely: null };
+        updateDailyChart();
+    }
+
+    function updateDateNav() {
+        const today = new Date().toISOString().split('T')[0];
+        // Parsear sem deslocamento de fuso
+        const [y, m, d] = selectedDate.split('-').map(Number);
+        const dt = new Date(y, m - 1, d);
+        const weekday = dt.toLocaleDateString('pt-BR', { weekday: 'short' });
+        const label   = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const suffix  = selectedDate === today ? ' (Hoje)' : '';
+        document.getElementById('chartDateLabel').textContent = `${weekday}, ${label}${suffix}`;
+
+        document.getElementById('btnPrevDay').disabled = selectedDateIdx >= availableDates.length - 1;
+        document.getElementById('btnNextDay').disabled = selectedDateIdx <= 0;
+    }
+
+    // ── Gráfico diário ────────────────────────────────────────────────────────
+    function setDailyResolution(res) {
+        dailyResolution = res;
+        document.querySelectorAll('#dailyResolutionBtns button').forEach(btn => {
+            const isTarget = (res === 'minutely' && btn.textContent.trim() === 'Minutos') ||
+                             (res === 'hourly'   && btn.textContent.trim() === 'Horas');
+            btn.className = isTarget ? 'btn btn-light active' : 'btn btn-outline-light';
+        });
+        if (dailyCache[res]) {
+            renderDailyChart(dailyCache[res].labels, dailyCache[res].values, res);
+        } else {
+            updateDailyChart();
+        }
+    }
+
+    function renderDailyChart(labels, values, res) {
+        // Ajustar largura do wrapper para viabilizar scroll horizontal
+        const pxPerPoint = res === 'minutely' ? 14 : 36;
+        const minW = Math.max(600, labels.length * pxPerPoint);
+        document.getElementById('dailyChartWrapper').style.minWidth = minW + 'px';
+
+        const resLabel = res === 'minutely' ? 'Por minuto' : 'Por hora';
+        document.getElementById('chartResolution').textContent = `${resLabel} · ${labels.length} pontos`;
+
+        const pointRadius = labels.length > 40 ? 0 : 3;
+
+        if (dailyChart) {
+            dailyChart.data.labels = labels;
+            dailyChart.data.datasets[0].data = values;
+            dailyChart.data.datasets[0].pointRadius = pointRadius;
+            dailyChart.update('none');
+        } else {
+            const ctx = document.getElementById('dailyChart').getContext('2d');
+            dailyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Potência (W)',
+                        data: values,
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { callback: v => v + ' W' }
+                        },
+                        x: {
+                            ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: res === 'minutely' ? 48 : 24 }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    async function updateDailyChart() {
+        // Buscar minutely para a data selecionada
+        try {
+            const res = await fetch(`/api/telemetry?date=${selectedDate}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.status === 'success' && data.time.length > 0) {
+                    dailyCache.minutely = { labels: data.time, values: data.power };
+                }
+            }
+        } catch (e) {}
+
+        // Buscar hourly para a data selecionada
+        try {
+            const res = await fetch(`/api/daily/${selectedDate}`);
+            const data = await res.json();
+            if (data.status === 'success') {
+                // Para dias anteriores, mostrar todas as horas com dados
+                const today = new Date().toISOString().split('T')[0];
+                const isToday = selectedDate === today;
+                const cd = isToday
+                    ? data.chart_data.filter(d => d.power > 0 || d.hour <= new Date().getHours())
+                    : data.chart_data.filter(d => d.power > 0);
+                dailyCache.hourly = {
+                    labels: (cd.length ? cd : data.chart_data).map(d => `${String(d.hour).padStart(2,'0')}:00`),
+                    values: (cd.length ? cd : data.chart_data).map(d => d.power)
+                };
+            }
+        } catch (e) { console.error('dailyChart hourly:', e); }
+
+        // Se minutely não disponível, forçar modo horário
+        if (!dailyCache.minutely && dailyCache.hourly) {
+            dailyResolution = 'hourly';
+            setDailyResolution('hourly');
+            return;
+        }
+
+        const cache = dailyCache[dailyResolution];
+        if (cache) renderDailyChart(cache.labels, cache.values, dailyResolution);
+    }
+
+    // ── Painéis ───────────────────────────────────────────────────────────────
+    async function updatePanelsData() {
+        try {
+            const res = await fetch('/api/panels');
+            const data = await res.json();
+            if (data.status === 'success') {
+                const tbody = document.getElementById('panelsTableBody');
+                if (data.panels.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center">Nenhum painel encontrado</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = data.panels.map(p => `
+                    <tr>
+                        <td><strong>${p.panel_id}</strong></td>
+                        <td>${p.average_power.toFixed(1)}</td>
+                        <td>${p.peak_power.toFixed(0)}</td>
+                        <td>${p.total_energy.toFixed(2)}</td>
+                    </tr>`).join('');
+            }
+        } catch (e) { console.error('updatePanelsData:', e); }
+    }
+
+    // ── Inversores por canal ──────────────────────────────────────────────────
+    function setInverterPeriod(period) {
+        inverterPeriod = period;
+        // Atualizar botões ativos
+        document.querySelectorAll('#inverterPeriodBtns button').forEach(btn => {
+            const isActive = btn.textContent.trim().toLowerCase() === { today:'hoje', month:'mês', year:'ano', lifetime:'total' }[period];
+            btn.className = isActive ? 'btn btn-light active' : 'btn btn-outline-light';
+        });
+        if (inverterData) renderInverterChart(inverterData);
+    }
+
+    function renderInverterChart(data) {
+        // Ordenar inversores sequencialmente pelo UID
+        const inverters = [...data.inverters].sort((a, b) =>
+            a.inverter_uid.localeCompare(b.inverter_uid, undefined, { numeric: true })
+        );
+
+        // Labels = UID completo de cada inversor
+        const labels = inverters.map(inv => inv.inverter_uid);
+
+        // Descobrir quantos canais existem no total
+        let maxCh = 0;
+        for (const inv of inverters) {
+            for (const ch of Object.keys(inv.channels || {})) {
+                maxCh = Math.max(maxCh, parseInt(ch));
+            }
+        }
+
+        // Um dataset por canal — cada dataset tem um valor por inversor
+        const datasets = [];
+        for (let ch = 1; ch <= maxCh; ch++) {
+            const values = inverters.map(inv => {
+                const chData = (inv.channels || {})[ch] ?? (inv.channels || {})[String(ch)];
+                if (!chData) return null;
+                const v = chData[inverterPeriod];
+                return v != null ? parseFloat(v) : null;
+            });
+
+            // Incluir dataset apenas se ao menos um inversor tem este canal com valor
+            if (values.some(v => v != null && v > 0)) {
+                const color = CHANNEL_COLORS[(ch - 1) % CHANNEL_COLORS.length];
+                datasets.push({
+                    label: `Canal ${ch}`,
+                    data: values,
+                    backgroundColor: color,
+                    borderColor: color.replace('0.85', '1'),
+                    borderWidth: 1,
+                    borderRadius: 3,
+                    borderSkipped: false
+                });
+            }
+        }
+
+        const periodLabel = { today: 'Hoje', month: 'Mês', year: 'Ano', lifetime: 'Total' }[inverterPeriod];
+        const titleText = `Geração por Inversor / Canal — ${periodLabel} (kWh)`;
+
+        if (inverterChart) {
+            inverterChart.data.labels = labels;
+            inverterChart.data.datasets = datasets;
+            inverterChart.options.plugins.title.text = titleText;
+            inverterChart.update();
+        } else {
+            const ctx = document.getElementById('inverterChart').getContext('2d');
+            inverterChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { font: { size: 11 }, boxWidth: 14, padding: 10 }
+                        },
+                        title: {
+                            display: true,
+                            text: titleText,
+                            font: { size: 13 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: items => items[0].label,
+                                label: item => ` ${item.dataset.label}: ${item.raw != null ? item.raw.toFixed(3) : '--'} kWh`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { font: { size: 9 }, maxRotation: 45 }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: { callback: v => v + ' kWh' }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    async function updateInverterSummary() {
+        try {
+            const res = await fetch('/api/inverters/summary');
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.status !== 'success') return;
+
+            inverterData = data;
+            renderInverterChart(data);
+
+            // Tabela
+            const tbody = document.getElementById('inverterSummaryBody');
+            const rows = [];
+            for (const inv of data.inverters) {
+                const channels = inv.channels || {};
+                const uid = inv.inverter_uid;
+                const chEntries = Object.entries(channels).filter(([, v]) =>
+                    v.today != null && parseFloat(v.today) > 0
+                );
+                if (chEntries.length === 0) continue;
+
+                // Calcular totais do inversor
+                const totToday = chEntries.reduce((s, [, v]) => s + (+v.today || 0), 0);
+                const totMonth = chEntries.reduce((s, [, v]) => s + (+v.month || 0), 0);
+                const totYear  = chEntries.reduce((s, [, v]) => s + (+v.year  || 0), 0);
+
+                // Linhas de canal
+                let first = true;
+                for (const [ch, vals] of chEntries) {
+                    rows.push(`<tr>
+                        <td>${first ? `<code>${uid}</code>` : ''}</td>
+                        <td class="text-center">${ch}</td>
+                        <td class="text-end">${(+vals.today).toFixed(3)}</td>
+                        <td class="text-end">${(+vals.month).toFixed(2)}</td>
+                        <td class="text-end">${(+vals.year).toFixed(2)}</td>
+                    </tr>`);
+                    first = false;
+                }
+
+                // Linha de total por inversor
+                rows.push(`<tr class="table-secondary fw-semibold">
+                    <td colspan="2" class="text-end pe-2"><small>Total</small></td>
+                    <td class="text-end">${totToday.toFixed(3)}</td>
+                    <td class="text-end">${totMonth.toFixed(2)}</td>
+                    <td class="text-end">${totYear.toFixed(2)}</td>
+                </tr>`);
+            }
+            tbody.innerHTML = rows.length ? rows.join('') :
+                '<tr><td colspan="5" class="text-center text-muted">Sem dados</td></tr>';
+        } catch (e) { console.error('updateInverterSummary:', e); }
+    }
+
+    // ── Medidor ───────────────────────────────────────────────────────────────
+    async function updateMeterData() {
+        try {
+            const res = await fetch('/api/meter');
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.status !== 'success') return;
+
+            const section = document.getElementById('meterSection');
+            section.style.display = '';
+
+            const fmt = v => v != null ? (+v).toFixed(3) + ' kWh' : '--';
+            const t = data.today || {};
+            const m = data.month || {};
+
+            document.getElementById('meterProduced').textContent  = fmt(t.produced);
+            document.getElementById('meterConsumed').textContent  = fmt(t.consumed);
+            document.getElementById('meterExported').textContent  = fmt(t.exported);
+            document.getElementById('meterImported').textContent  = fmt(t.imported);
+
+            document.getElementById('meterMonthProduced').textContent  = fmt(m.produced);
+            document.getElementById('meterMonthConsumed').textContent  = fmt(m.consumed);
+            document.getElementById('meterMonthExported').textContent  = fmt(m.exported);
+            document.getElementById('meterMonthImported').textContent  = fmt(m.imported);
+        } catch (e) { console.error('updateMeterData:', e); }
+    }
+
+    // ── Alertas ───────────────────────────────────────────────────────────────
+    const SEVERITY_CFG = {
+        critical: { cls: 'danger',   icon: 'exclamation-circle',  label: 'Crítico'  },
+        warning:  { cls: 'warning',  icon: 'exclamation-triangle', label: 'Atenção'  },
+        info:     { cls: 'info',     icon: 'info-circle',          label: 'Info'     }
+    };
+    const TYPE_LABELS = {
+        inverter_fault: 'Falha Inversor', ecu_alarm: 'Alarme ECU',
+        offline: 'Offline', low_generation: 'Baixa Geração',
+        peak: 'Pico', alarm: 'Alarme'
+    };
+
+    async function updateAlerts() {
+        try {
+            const res = await fetch('/api/alerts?all=1&limit=30');
+            const data = await res.json();
+            if (data.status !== 'success') return;
+
+            const unresolved = data.count || 0;
+            const badge = document.getElementById('alertBadge');
+            const header = document.getElementById('alertsCardHeader');
+
+            if (unresolved > 0) {
+                badge.textContent = unresolved;
+                badge.style.display = '';
+                header.style.background = '#dc3545';
+            } else {
+                badge.style.display = 'none';
+                header.style.background = '#28a745';
+            }
+
+            const wrapper = document.getElementById('alertsTableWrapper');
+
+            if (!data.alerts || data.alerts.length === 0) {
+                wrapper.innerHTML = `<div class="text-center p-4 text-success">
+                    <i class="fas fa-check-circle fa-2x mb-2 d-block"></i>Nenhum alerta detectado</div>`;
+                return;
+            }
+
+            let html = `<div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th style="width:110px">Severidade</th>
+                        <th style="width:140px">Data/Hora</th>
+                        <th style="width:130px">Tipo</th>
+                        <th>Mensagem</th>
+                        <th style="width:80px" class="text-center">Ação</th>
+                    </tr>
+                </thead><tbody>`;
+
+            for (const a of data.alerts) {
+                const sc   = SEVERITY_CFG[a.severity] || { cls:'secondary', icon:'bell', label: a.severity };
+                const type = TYPE_LABELS[a.alert_type] || a.alert_type;
+                const dt   = new Date(a.timestamp).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+                const rowCls = a.resolved ? 'table-secondary text-muted' : '';
+                const resolvedAt = a.resolved_at
+                    ? new Date(a.resolved_at).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})
+                    : null;
+
+                html += `<tr class="${rowCls}">
+                    <td><span class="badge bg-${sc.cls}"><i class="fas fa-${sc.icon}"></i> ${sc.label}</span></td>
+                    <td class="small">${dt}</td>
+                    <td class="small">${type}</td>
+                    <td class="small">${a.message}</td>
+                    <td class="text-center">`;
+
+                if (!a.resolved) {
+                    html += `<button class="btn btn-outline-success btn-sm py-0 px-1"
+                        onclick="resolveAlert(${a.id})" title="Marcar como resolvido">
+                        <i class="fas fa-check"></i></button>`;
+                } else {
+                    html += `<span class="text-success small" title="Resolvido em ${resolvedAt}">
+                        <i class="fas fa-check-circle"></i></span>`;
+                }
+                html += `</td></tr>`;
+            }
+            html += '</tbody></table></div>';
+            wrapper.innerHTML = html;
+
+        } catch (e) { console.error('updateAlerts:', e); }
+    }
+
+    async function resolveAlert(alertId) {
+        try {
+            const res = await fetch(`/api/alerts/${alertId}/resolve`, { method: 'POST' });
+            if (res.ok) updateAlerts();
+        } catch (e) { console.error('resolveAlert:', e); }
+    }
+
+    // ── Ciclos de atualização ────────────────────────────────────────────────
+    async function fullUpdate() {
+        const indicator = document.getElementById('refreshIndicator');
+        indicator.style.display = 'block';
+        await Promise.all([
+            updateCurrentData(),
+            updateEnergyTotals(),
+            updateDailyChart(),
+            updatePanelsData(),
+            updateInverterSummary(),
+            updateMeterData(),
+            updateAlerts()
+        ]);
+        indicator.style.display = 'none';
+        secondsUntilFull = FULL_INTERVAL;
+        secondsUntilCurrent = CURRENT_INTERVAL;
+    }
+
+    function updateCountdown() {
+        secondsUntilCurrent--;
+        secondsUntilFull--;
+
+        if (secondsUntilCurrent <= 0) {
+            updateCurrentData();
+            updateMeterData();
+            updateAlerts();
+            secondsUntilCurrent = CURRENT_INTERVAL;
+        }
+
+        if (secondsUntilFull <= 0) {
+            fullUpdate();
+            return;
+        }
+
+        const m = Math.floor(secondsUntilFull / 60);
+        const s = secondsUntilFull % 60;
+        const display = m > 0 ? `${m}m ${s.toString().padStart(2,'0')}s` : `${s}s`;
+        document.getElementById('countdown').textContent = `Próx. atualização: ${display}`;
+    }
+
+    // ── Destinatários ─────────────────────────────────────────────────────────
+    async function loadRecipients() {
+        try {
+            const res = await fetch('/api/email/recipients');
+            const data = await res.json();
+            const tbody = document.getElementById('recipientsBody');
+            if (!data.recipients || data.recipients.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Nenhum destinatário cadastrado</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.recipients.map(r => `
+            <tr id="recipient-row-${r.id}" class="${r.active ? '' : 'table-secondary text-muted'}">
+                <td>${r.name}</td>
+                <td><code>${r.email}</code></td>
+                <td class="text-center">
+                    <div class="form-check form-switch d-flex justify-content-center mb-0">
+                        <input class="form-check-input" type="checkbox" ${r.receive_alerts ? 'checked' : ''}
+                               onchange="updateRecipient(${r.id}, {receive_alerts: this.checked})">
+                    </div>
+                </td>
+                <td class="text-center">
+                    <div class="form-check form-switch d-flex justify-content-center mb-0">
+                        <input class="form-check-input" type="checkbox" ${r.receive_reports ? 'checked' : ''}
+                               onchange="updateRecipient(${r.id}, {receive_reports: this.checked})">
+                    </div>
+                </td>
+                <td class="text-center">
+                    <div class="form-check form-switch d-flex justify-content-center mb-0">
+                        <input class="form-check-input" type="checkbox" ${r.active ? 'checked' : ''}
+                               onchange="updateRecipient(${r.id}, {active: this.checked})">
+                    </div>
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-outline-danger btn-sm py-0" onclick="deleteRecipient(${r.id}, '${r.email}')">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>`).join('');
+        } catch (e) { console.error('loadRecipients:', e); }
+    }
+
+    async function addRecipient() {
+        const name  = document.getElementById('newRecipientName').value.trim();
+        const email = document.getElementById('newRecipientEmail').value.trim();
+        const alerts  = document.getElementById('newRecipientAlerts').checked;
+        const reports = document.getElementById('newRecipientReports').checked;
+        if (!name || !email) return _emailFeedback('Preencha nome e email.', 'warning');
+        try {
+            const res = await fetch('/api/email/recipients', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({name, email, receive_alerts: alerts, receive_reports: reports})
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                document.getElementById('newRecipientName').value = '';
+                document.getElementById('newRecipientEmail').value = '';
+                _emailFeedback(`<i class="fas fa-check"></i> ${name} &lt;${email}&gt; cadastrado.`, 'success');
+                loadRecipients();
+            } else {
+                _emailFeedback(`<i class="fas fa-times"></i> ${data.message}`, 'danger');
+            }
+        } catch (e) { _emailFeedback('Erro ao cadastrar.', 'danger'); }
+    }
+
+    async function updateRecipient(id, patch) {
+        try {
+            await fetch(`/api/email/recipients/${id}`, {
+                method: 'PUT', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify(patch)
+            });
+            loadRecipients();
+        } catch (e) { console.error('updateRecipient:', e); }
+    }
+
+    async function deleteRecipient(id, email) {
+        if (!confirm(`Remover ${email} da lista de destinatários?`)) return;
+        try {
+            const res = await fetch(`/api/email/recipients/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.status === 'success') {
+                _emailFeedback(`Destinatário removido.`, 'success');
+                loadRecipients();
+            }
+        } catch (e) { console.error('deleteRecipient:', e); }
+    }
+
+    // ── Email / Gmail ─────────────────────────────────────────────────────────
+    async function loadEmailConfig() {
+        try {
+            const res = await fetch('/api/email/config');
+            const data = await res.json();
+            if (data.status !== 'success') return;
+
+            document.getElementById('cfgSenderEmail').value = data.sender_email || '';
+            document.getElementById('cfgRecipientEmail').value = data.recipient_email || '';
+
+            const badge = document.getElementById('emailStatusBadge');
+            if (data.configured) {
+                badge.textContent = 'Configurado';
+                badge.className = 'badge bg-success';
+            } else {
+                badge.textContent = 'Não configurado';
+                badge.className = 'badge bg-warning text-dark';
+            }
+        } catch (e) { console.error('loadEmailConfig:', e); }
+    }
+
+    function _emailFeedback(msg, type) {
+        const el = document.getElementById('emailFeedback');
+        el.innerHTML = `<div class="alert alert-${type} py-2 mb-0">${msg}</div>`;
+        setTimeout(() => { el.innerHTML = ''; }, 5000);
+    }
+
+    async function saveEmailConfig() {
+        const body = {
+            sender_email:     document.getElementById('cfgSenderEmail').value.trim(),
+            sender_password:  document.getElementById('cfgSenderPassword').value.trim(),
+            recipient_email:  document.getElementById('cfgRecipientEmail').value.trim()
+        };
+        if (!body.sender_email || !body.recipient_email) {
+            return _emailFeedback('Preencha o email remetente e destinatário.', 'warning');
+        }
+        try {
+            const res = await fetch('/api/email/config', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify(body)
+            });
+            const data = await res.json();
+            if (data.status === 'success') {
+                _emailFeedback('<i class="fas fa-check"></i> ' + data.message, 'success');
+                document.getElementById('cfgSenderPassword').value = '';
+                loadEmailConfig();
+            } else {
+                _emailFeedback('<i class="fas fa-times"></i> ' + data.message, 'danger');
+            }
+        } catch (e) { _emailFeedback('Erro ao salvar configuração.', 'danger'); }
+    }
+
+    async function sendTestEmail() {
+        _emailFeedback('<i class="fas fa-spinner fa-spin"></i> Enviando email de teste...', 'info');
+        try {
+            const res = await fetch('/api/email/test', { method: 'POST' });
+            const data = await res.json();
+            const type = data.status === 'success' ? 'success' : 'danger';
+            const icon = data.status === 'success' ? 'check' : 'times';
+            _emailFeedback(`<i class="fas fa-${icon}"></i> ${data.message}`, type);
+        } catch (e) { _emailFeedback('Erro ao enviar email de teste.', 'danger'); }
+    }
+
+    async function sendDailyReport() {
+        _emailFeedback('<i class="fas fa-spinner fa-spin"></i> Gerando e enviando relatório...', 'info');
+        try {
+            const res = await fetch('/api/email/report', { method: 'POST' });
+            const data = await res.json();
+            const type = data.status === 'success' ? 'success' : 'danger';
+            const icon = data.status === 'success' ? 'check' : 'times';
+            _emailFeedback(`<i class="fas fa-${icon}"></i> ${data.message}`, type);
+        } catch (e) { _emailFeedback('Erro ao enviar relatório.', 'danger'); }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadAvailableDates().then(() => fullUpdate());
+        loadEmailConfig();
+        loadRecipients();
+        setInterval(updateCountdown, 1000);
+    });
+</script>
+{% endblock %}
