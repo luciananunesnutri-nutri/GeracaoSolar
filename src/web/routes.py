@@ -86,10 +86,12 @@ def register_routes(app):
                 'scheduler': {
                     'collection_enabled':       sc.get('collection_enabled', True),
                     'collection_on_startup':    sc.get('collection_on_startup', False),
+                    'evening_summary_enabled':  sc.get('evening_summary_enabled', True),
+                    'statistics_enabled':       sc.get('statistics_enabled', True),
                     'cleanup_enabled':          sc.get('cleanup_enabled', True),
-                    'collection_interval':      sc.get('collection_interval', '0 8-17 * * *'),
-                    'evening_summary_interval': sc.get('evening_summary_interval', '0 17 * * *'),
-                    'statistics_interval':      sc.get('statistics_interval', '55 23 * * *'),
+                    'collection_interval':      sc.get('collection_interval', '0 18 * * *'),
+                    'evening_summary_interval': sc.get('evening_summary_interval', '0 20 * * *'),
+                    'statistics_interval':      sc.get('statistics_interval', '40 20 * * *'),
                     'cleanup_interval':         sc.get('cleanup_interval', '0 2 * * 0'),
                 },
                 'logging': {
@@ -140,7 +142,8 @@ def register_routes(app):
 
             sc = cfg.setdefault('scheduler', {})
             # Flags booleanas
-            for key in ('collection_enabled', 'collection_on_startup', 'cleanup_enabled'):
+            for key in ('collection_enabled', 'collection_on_startup',
+                        'evening_summary_enabled', 'statistics_enabled', 'cleanup_enabled'):
                 if key in data:
                     sc[key] = bool(data[key])
             # Expressões cron
@@ -154,8 +157,46 @@ def register_routes(app):
 
             logger.info("Configuração do scheduler atualizada")
             return jsonify({'status': 'success',
-                            'message': 'Agendamentos salvos — reinicie o scheduler (main.py) para aplicar'})
+                            'message': 'Agendamentos salvos com sucesso'})
         except Exception as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    @app.route('/api/scheduler/restart', methods=['POST'])
+    def api_scheduler_restart():
+        """Reinicia o processo do scheduler (main.py)."""
+        import subprocess, sys as _sys
+        project_root = Path(__file__).parent.parent.parent
+        pid_path     = project_root / 'data' / 'scheduler.pid'
+        log_path     = project_root / 'logs' / 'scheduler.log'
+
+        # Encerra processo atual se existir
+        if pid_path.exists():
+            try:
+                old_pid = int(pid_path.read_text().strip())
+                if _sys.platform == 'win32':
+                    subprocess.run(['taskkill', '/F', '/PID', str(old_pid)],
+                                   capture_output=True)
+                else:
+                    import signal as _sig
+                    import os as _os
+                    _os.kill(old_pid, _sig.SIGTERM)
+                logger.info(f"Scheduler anterior (PID {old_pid}) encerrado")
+            except Exception as e:
+                logger.warning(f"Não foi possível encerrar scheduler anterior: {e}")
+
+        # Inicia novo processo
+        try:
+            log_file = open(str(log_path), 'a')
+            subprocess.Popen(
+                [_sys.executable, str(project_root / 'main.py')],
+                cwd=str(project_root),
+                stdout=log_file,
+                stderr=log_file
+            )
+            logger.info("Scheduler reiniciado com sucesso")
+            return jsonify({'status': 'success', 'message': 'Scheduler reiniciado com sucesso'})
+        except Exception as e:
+            logger.error(f"Erro ao reiniciar scheduler: {e}")
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/config/system', methods=['POST'])
@@ -652,6 +693,19 @@ def register_routes(app):
             logger.error(f"Erro ao buscar energia do ano anterior: {e}")
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
+    @app.route('/api/energy/prev-day')
+    def api_energy_prev_day():
+        """Retorna geração do dia anterior (via Statistics)."""
+        try:
+            yesterday = date.today() - timedelta(days=1)
+            repository = Repository()
+            stats = repository.get_daily_stats(yesterday)
+            kwh = float(stats.total_generation_kwh or 0) if stats else 0.0
+            return jsonify({'status': 'success', 'date': yesterday.isoformat(), 'kwh': kwh})
+        except Exception as e:
+            logger.error(f"Erro ao buscar energia do dia anterior: {e}")
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
     @app.route('/api/collect', methods=['POST'])
     def api_collect():
         """Dispara coleta de dados em background."""
@@ -828,7 +882,7 @@ def register_routes(app):
               </div>
             </div></body></html>
             """
-            success = sender.send_email(subject, body, html=True)
+            success = sender.send_email(subject, body, html=True, email_type='test')
             if success:
                 return jsonify({'status': 'success', 'message': 'Email de teste enviado com sucesso'})
             else:
@@ -846,6 +900,38 @@ def register_routes(app):
             return jsonify(result)
         except Exception as e:
             logger.error(f"Erro ao gerar insights: {e}")
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    @app.route('/api/email/log', methods=['GET'])
+    def api_email_log():
+        """Retorna o histórico de envios de email."""
+        try:
+            limit      = min(int(request.args.get('limit', 100)), 500)
+            email_type = request.args.get('type')
+            logs = Repository.get_email_logs(limit=limit, email_type=email_type or None)
+            TYPE_LABELS = {
+                'alert':           'Alerta',
+                'daily_report':    'Relatório Diário',
+                'evening_summary': 'Resumo Vespertino',
+                'test':            'Teste',
+                'unknown':         '—',
+            }
+            result = []
+            for entry in logs:
+                result.append({
+                    'id':              entry.id,
+                    'sent_at':         entry.sent_at.strftime('%d/%m/%Y %H:%M:%S') if entry.sent_at else '',
+                    'email_type':      entry.email_type,
+                    'type_label':      TYPE_LABELS.get(entry.email_type, entry.email_type),
+                    'subject':         entry.subject,
+                    'recipients':      entry.recipients or [],
+                    'recipient_count': entry.recipient_count or 0,
+                    'success':         entry.success,
+                    'error_message':   entry.error_message,
+                })
+            return jsonify({'status': 'success', 'logs': result, 'total': len(result)})
+        except Exception as e:
+            logger.error(f"Erro ao buscar log de emails: {e}")
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/email/report', methods=['POST'])

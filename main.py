@@ -4,6 +4,7 @@ Sistema de Monitoramento Solar APSystems
 Entry point do scheduler - coleta automatizada de dados
 """
 
+import os
 import sys
 from pathlib import Path
 from apscheduler.schedulers.blocking import BlockingScheduler
@@ -30,13 +31,20 @@ def main():
     logger.info("SISTEMA DE MONITORAMENTO SOLAR APSYSTEMS")
     logger.info("=" * 60)
 
+    # Gravar PID para permitir reinicialização via web
+    pid_path = Path(__file__).parent / "data" / "scheduler.pid"
+    pid_path.write_text(str(os.getpid()))
+    logger.info(f"PID do scheduler: {os.getpid()} → {pid_path}")
+
     # Carregar configurações
     config = load_config()
     sc = config['scheduler']
 
-    collection_enabled    = sc.get('collection_enabled', True)
-    collection_on_startup = sc.get('collection_on_startup', False)
-    cleanup_enabled       = sc.get('cleanup_enabled', True)
+    collection_enabled        = sc.get('collection_enabled', True)
+    collection_on_startup     = sc.get('collection_on_startup', False)
+    evening_summary_enabled   = sc.get('evening_summary_enabled', True)
+    statistics_enabled        = sc.get('statistics_enabled', True)
+    cleanup_enabled           = sc.get('cleanup_enabled', True)
 
     # Criar scheduler
     scheduler = BlockingScheduler()
@@ -55,24 +63,30 @@ def main():
         logger.info("✗ Job 'Coleta de Dados' DESABILITADO (collection_enabled: false)")
 
     # Job 2: Resumo vespertino por email
-    scheduler.add_job(
-        send_evening_summary,
-        CronTrigger.from_crontab(sc['evening_summary_interval']),
-        id='send_evening_summary',
-        name='Resumo Vespertino por Email',
-        replace_existing=True
-    )
-    logger.info(f"✓ Job 'Resumo Vespertino' agendado: {sc['evening_summary_interval']}")
+    if evening_summary_enabled:
+        scheduler.add_job(
+            send_evening_summary,
+            CronTrigger.from_crontab(sc['evening_summary_interval']),
+            id='send_evening_summary',
+            name='Resumo Vespertino por Email',
+            replace_existing=True
+        )
+        logger.info(f"✓ Job 'Resumo Vespertino' agendado: {sc['evening_summary_interval']}")
+    else:
+        logger.info("✗ Job 'Resumo Vespertino' DESABILITADO (evening_summary_enabled: false)")
 
     # Job 3: Cálculo de estatísticas
-    scheduler.add_job(
-        calculate_statistics,
-        CronTrigger.from_crontab(sc['statistics_interval']),
-        id='calculate_statistics',
-        name='Cálculo de Estatísticas',
-        replace_existing=True
-    )
-    logger.info(f"✓ Job 'Cálculo de Estatísticas' agendado: {sc['statistics_interval']}")
+    if statistics_enabled:
+        scheduler.add_job(
+            calculate_statistics,
+            CronTrigger.from_crontab(sc['statistics_interval']),
+            id='calculate_statistics',
+            name='Cálculo de Estatísticas',
+            replace_existing=True
+        )
+        logger.info(f"✓ Job 'Cálculo de Estatísticas' agendado: {sc['statistics_interval']}")
+    else:
+        logger.info("✗ Job 'Cálculo de Estatísticas' DESABILITADO (statistics_enabled: false)")
 
     # Job 4: Limpeza de dados antigos
     if cleanup_enabled:
@@ -114,6 +128,9 @@ def main():
         logger.error(f"Erro no scheduler: {e}", exc_info=True)
         scheduler.shutdown()
         sys.exit(1)
+    finally:
+        if pid_path.exists():
+            pid_path.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

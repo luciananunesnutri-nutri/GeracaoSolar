@@ -4,7 +4,7 @@ from sqlalchemy import func, and_
 from .models import (
     db, GenerationData, Statistics, Alert, SystemStatusModel,
     EcuTelemetry, InverterBatchData, MeterData, InverterSummary,
-    AlertRecipient, PeriodType, AlertType, Severity, SystemStatus
+    AlertRecipient, EmailLog, PeriodType, AlertType, Severity, SystemStatus
 )
 from ..utils.logger import logger
 
@@ -681,5 +681,37 @@ class Repository:
                     InverterSummary.timestamp == subq.c.max_ts
                 )
             ).all()
+        finally:
+            session.close()
+
+    @staticmethod
+    def save_email_log(data: Dict) -> EmailLog:
+        """Registra um envio de email no histórico."""
+        session = db.get_session()
+        try:
+            entry = EmailLog(
+                email_type=data.get('email_type', 'unknown'),
+                subject=data.get('subject', ''),
+                recipients=data.get('recipients', []),
+                recipient_count=data.get('recipient_count', 0),
+                success=bool(data.get('success', False)),
+                error_message=data.get('error_message'),
+            )
+            session.add(entry)
+            session.commit()
+            session.refresh(entry)
+            return entry
+        finally:
+            session.close()
+
+    @staticmethod
+    def get_email_logs(limit: int = 100, email_type: str = None) -> List[EmailLog]:
+        """Retorna o histórico de envios de email, do mais recente ao mais antigo."""
+        session = db.get_session()
+        try:
+            q = session.query(EmailLog)
+            if email_type:
+                q = q.filter(EmailLog.email_type == email_type)
+            return q.order_by(EmailLog.sent_at.desc()).limit(limit).all()
         finally:
             session.close()

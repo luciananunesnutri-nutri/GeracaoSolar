@@ -41,15 +41,18 @@ class EmailSender:
         return []
 
     def send_email(self, subject: str, body: str, html: bool = True,
-                   recipients: list = None) -> bool:
+                   recipients: list = None, email_type: str = 'unknown') -> bool:
         """Envia email para a lista de destinatários informada ou para todos os ativos no banco."""
         if recipients is None:
             recipients = self._get_recipients()
 
         if not recipients:
             logger.warning("Nenhum destinatário configurado — email não enviado")
+            self._log_email(email_type, subject, [], False, "Nenhum destinatário configurado")
             return False
 
+        success = False
+        error_msg = None
         try:
             with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
                 server.starttls()
@@ -64,11 +67,32 @@ class EmailSender:
                     server.send_message(msg)
                     logger.info(f"Email enviado para {to_email}: {subject}")
 
+            success = True
             return True
 
         except Exception as e:
+            error_msg = str(e)
             logger.error(f"Erro ao enviar email: {e}")
             return False
+
+        finally:
+            self._log_email(email_type, subject, recipients, success, error_msg)
+
+    def _log_email(self, email_type: str, subject: str, recipients: list,
+                   success: bool, error_message: str = None) -> None:
+        """Grava entrada no log de emails do banco de dados."""
+        try:
+            from ..database.repository import Repository
+            Repository.save_email_log({
+                'email_type':      email_type,
+                'subject':         subject,
+                'recipients':      list(recipients),
+                'recipient_count': len(recipients),
+                'success':         success,
+                'error_message':   error_message,
+            })
+        except Exception as e:
+            logger.warning(f"Falha ao registrar log de email: {e}")
 
     def send_alert_email(self, alert: Dict) -> bool:
         """
@@ -100,7 +124,7 @@ class EmailSender:
         body = self._create_alert_html(alert_type, severity, message, details)
 
         recipients = self._get_recipients(alerts_only=True)
-        return self.send_email(subject, body, html=True, recipients=recipients)
+        return self.send_email(subject, body, html=True, recipients=recipients, email_type='alert')
 
     def send_daily_report_email(self, stats: Dict, alerts: list = None,
                                 insights: dict = None) -> bool:
@@ -120,7 +144,7 @@ class EmailSender:
             subject += f" ⚠️ {len(alerts)} alerta(s)"
         body = self._create_daily_report_html(stats, alerts or [], insights)
         recipients = self._get_recipients(reports_only=True)
-        return self.send_email(subject, body, html=True, recipients=recipients)
+        return self.send_email(subject, body, html=True, recipients=recipients, email_type='daily_report')
 
     def _create_alert_html(self, alert_type: str, severity: str, message: str, details: Dict) -> str:
         """
@@ -193,7 +217,7 @@ class EmailSender:
             subject += f" ⚠️ {len(alerts)} alerta(s)"
         body = self._create_evening_summary_html(data, alerts or [], insights)
         recipients = self._get_recipients(reports_only=True)
-        return self.send_email(subject, body, html=True, recipients=recipients)
+        return self.send_email(subject, body, html=True, recipients=recipients, email_type='evening_summary')
 
     def _build_insights_html_block(self, insights: dict) -> str:
         """Cria bloco HTML com as seções de insights para incluir nos emails programados."""

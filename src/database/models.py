@@ -177,6 +177,23 @@ class AlertRecipient(Base):
         return f"<AlertRecipient(email='{self.email}', active={self.active})>"
 
 
+class EmailLog(Base):
+    """Log de envios de email."""
+    __tablename__ = 'email_log'
+
+    id = Column(Integer, primary_key=True)
+    sent_at = Column(DateTime, nullable=False, default=datetime.now, index=True)
+    email_type = Column(String(50), nullable=False, default='unknown')
+    subject = Column(String(500), nullable=False)
+    recipients = Column(JSON, nullable=True)      # lista de endereços
+    recipient_count = Column(Integer, default=0)
+    success = Column(Boolean, nullable=False)
+    error_message = Column(Text, nullable=True)
+
+    def __repr__(self):
+        return f"<EmailLog(type='{self.email_type}', success={self.success}, sent_at='{self.sent_at}')>"
+
+
 class Database:
     """Gerenciador de banco de dados."""
 

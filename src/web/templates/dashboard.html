@@ -43,6 +43,8 @@
             <i class="fas fa-sun fa-2x mb-3 text-primary"></i>
             <div class="stat-value" id="energyToday">-- kWh</div>
             <div class="stat-label">Geração Hoje</div>
+            <div id="energyYesterdayLabel" class="text-muted mt-1" style="font-size:0.75rem; min-height:1.1em;"></div>
+            <div id="todayVsYesterdayBadge" class="mt-1" style="min-height:1.4em;"></div>
         </div>
     </div>
     <div class="col-6 col-md-3">
@@ -496,6 +498,9 @@
     ];
 
     // ── Dados atuais ─────────────────────────────────────────────────────────
+    let _todayKwh = null;
+    let _prevDayKwh = null;
+
     async function updateCurrentData() {
         try {
             const response = await fetch('/api/current');
@@ -507,8 +512,38 @@
                 document.getElementById('totalEnergy').textContent  = `${data.energy_total.toFixed(2)} kWh`;
                 const ts = new Date(data.timestamp);
                 document.getElementById('lastUpdate').textContent = `Atualizado: ${ts.toLocaleTimeString('pt-BR')}`;
+                _todayKwh = data.energy_today;
+                renderTodayVsYesterday();
             }
         } catch (e) { console.error('updateCurrentData:', e); }
+    }
+
+    async function loadPrevDayComparison() {
+        try {
+            const res = await fetch('/api/energy/prev-day');
+            const data = await res.json();
+            if (data.status === 'success') {
+                _prevDayKwh = +(data.kwh || 0);
+                const d = new Date(data.date + 'T12:00:00');
+                const label = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+                document.getElementById('energyYesterdayLabel').textContent =
+                    `${label}: ${_prevDayKwh.toFixed(2)} kWh`;
+                renderTodayVsYesterday();
+            }
+        } catch (e) { console.error('loadPrevDayComparison:', e); }
+    }
+
+    function renderTodayVsYesterday() {
+        const badge = document.getElementById('todayVsYesterdayBadge');
+        if (!badge || _todayKwh === null || _prevDayKwh === null) return;
+        if (_prevDayKwh === 0) { badge.innerHTML = ''; return; }
+        const diffPct = ((_todayKwh - _prevDayKwh) / _prevDayKwh) * 100;
+        const above   = diffPct >= 0;
+        const icon    = above ? '▲' : '▼';
+        const color   = above ? '#198754' : '#dc3545';
+        const bg      = above ? 'rgba(25,135,84,0.12)' : 'rgba(220,53,69,0.12)';
+        const sign    = above ? '+' : '';
+        badge.innerHTML = `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;background:${bg};color:${color};font-size:0.70rem;font-weight:600;">${icon} ${sign}${diffPct.toFixed(1)}% vs ontem</span>`;
     }
 
     // ── Totais mês / ano / lifetime ──────────────────────────────────────────
@@ -1195,6 +1230,7 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         loadAvailableDates().then(() => fullUpdate());
+        loadPrevDayComparison();
         loadEmailConfig();
         loadRecipients();
     });

@@ -4,11 +4,21 @@
 {% block extra_css %}
 <style>
 @media (max-width: 767.98px) {
-    /* Formulário de destinatários: empilha no mobile */
     #tab-recipients .row.g-2 > [class*="col-md"] { flex: 0 0 100%; max-width: 100%; }
-    /* Botões de ação empilhados */
     .d-flex.gap-2.flex-wrap > .btn { width: 100%; }
 }
+/* ── Job cards ─────────────────────────────────────────────────────────── */
+.job-card {
+    transition: border-color .25s ease, opacity .25s ease, box-shadow .25s ease;
+    border-color: #dee2e6 !important;
+}
+.job-card.job-active  { border-color: #198754 !important; box-shadow: 0 0 0 1px rgba(25,135,84,.15); }
+.job-card.job-inactive { border-color: #ced4da !important; opacity: .72; }
+.job-card.job-active  .job-card-hdr { background: rgba(25,135,84,.07); }
+.job-card.job-inactive .job-card-hdr { background: rgba(0,0,0,.03); }
+.cron-preview { min-height: 1.4em; line-height: 1.5; }
+/* ── Timeline ──────────────────────────────────────────────────────────── */
+#scheduleTimeline { overflow: hidden; }
 </style>
 {% endblock %}
 
@@ -130,6 +140,27 @@
                 </div>
                 <div id="feedback-email" class="mt-3"></div>
 
+                <!-- ── Histórico de Envios ────────────────────────────────── -->
+                <hr class="my-4">
+                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                    <h6 class="text-muted fw-bold mb-0"><i class="fas fa-history"></i> Histórico de Envios</h6>
+                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                        <div class="btn-group btn-group-sm" id="emailLogFilter">
+                            <button class="btn btn-outline-secondary active" onclick="filterEmailLog('all',this)">Todos</button>
+                            <button class="btn btn-outline-secondary" onclick="filterEmailLog('daily_report',this)">Relatório</button>
+                            <button class="btn btn-outline-secondary" onclick="filterEmailLog('evening_summary',this)">Vespertino</button>
+                            <button class="btn btn-outline-secondary" onclick="filterEmailLog('alert',this)">Alerta</button>
+                            <button class="btn btn-outline-secondary" onclick="filterEmailLog('test',this)">Teste</button>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="loadEmailLog()" title="Atualizar">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="emailLogContainer">
+                    <div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>
+                </div>
+
                 <hr class="my-4">
                 <h6 class="text-muted fw-bold">Como gerar a Senha de App Gmail</h6>
                 <ol class="small text-muted">
@@ -206,118 +237,193 @@
     <!-- ── Agendamentos ──────────────────────────────────────────────────── -->
     <div class="tab-pane fade" id="tab-scheduler">
         <div class="card">
-            <div class="card-header bg-warning text-dark">
-                <h5 class="mb-0"><i class="fas fa-clock"></i> Agendamentos (Cron)</h5>
+            <div class="card-header bg-warning text-dark d-flex align-items-center gap-2">
+                <h5 class="mb-0 flex-grow-1"><i class="fas fa-clock"></i> Agendamentos</h5>
+                <small class="opacity-75 fw-normal">5 jobs configurados</small>
             </div>
             <div class="card-body">
-                <div class="alert alert-warning small py-2 mb-4">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    Alterações requerem <strong>reinicialização do scheduler (main.py)</strong> para entrar em vigor.
-                    Use a sintaxe <a href="https://crontab.guru" target="_blank">cron</a> padrão.
+
+                <div class="alert alert-info small py-2 mb-4">
+                    <i class="fas fa-sync-alt me-1"></i>
+                    Ao salvar, o scheduler é <strong>reiniciado automaticamente</strong> com a nova configuração.
+                    Use a sintaxe <a href="https://crontab.guru" target="_blank">cron</a> padrão (5 campos).
                 </div>
 
-                <!-- ── Controles de ativação ── -->
-                <h6 class="fw-semibold text-muted mb-3"><i class="fas fa-toggle-on me-1"></i> Ativação dos Jobs</h6>
+                <!-- ── Linha do Tempo ─────────────────────────────────── -->
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-semibold text-muted mb-0">
+                            <i class="fas fa-calendar-day me-1"></i> Visão geral — Hoje
+                        </h6>
+                        <small class="text-muted font-monospace" id="tlCurrentTime"></small>
+                    </div>
+                    <div class="bg-light border rounded p-3" style="overflow-x:auto;">
+                        <div id="scheduleTimeline" class="position-relative" style="height:78px;min-width:320px;"></div>
+                    </div>
+                </div>
+
+                <!-- ── Cards dos Jobs ─────────────────────────────────── -->
                 <div class="row g-3 mb-4">
-                    <div class="col-12 col-md-4">
-                        <div class="card border h-100">
-                            <div class="card-body py-3">
-                                <div class="d-flex align-items-center justify-content-between gap-2">
-                                    <div>
-                                        <div class="fw-semibold"><i class="fas fa-download text-primary me-1"></i> Coleta Agendada</div>
-                                        <small class="text-muted">Coleta automática da API APSystems via cron</small>
-                                    </div>
-                                    <div class="form-check form-switch mb-0 ms-2">
-                                        <input class="form-check-input" type="checkbox" role="switch"
-                                               id="scCollectionEnabled" style="width:2.5em;height:1.3em"
-                                               onchange="toggleCollectionFields()">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-4">
-                        <div class="card border h-100">
-                            <div class="card-body py-3">
-                                <div class="d-flex align-items-center justify-content-between gap-2">
-                                    <div>
-                                        <div class="fw-semibold"><i class="fas fa-play-circle text-success me-1"></i> Coletar ao Iniciar</div>
-                                        <small class="text-muted">Executa uma coleta imediatamente ao subir o scheduler</small>
-                                    </div>
-                                    <div class="form-check form-switch mb-0 ms-2">
-                                        <input class="form-check-input" type="checkbox" role="switch"
-                                               id="scCollectionOnStartup" style="width:2.5em;height:1.3em">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-4">
-                        <div class="card border h-100">
-                            <div class="card-body py-3">
-                                <div class="d-flex align-items-center justify-content-between gap-2">
-                                    <div>
-                                        <div class="fw-semibold"><i class="fas fa-trash-alt text-danger me-1"></i> Limpeza de Dados</div>
-                                        <small class="text-muted">Remove registros com mais de 6 meses do banco</small>
-                                    </div>
-                                    <div class="form-check form-switch mb-0 ms-2">
-                                        <input class="form-check-input" type="checkbox" role="switch"
-                                               id="scCleanupEnabled" style="width:2.5em;height:1.3em"
-                                               onchange="toggleCleanupField()">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- ── Expressões Cron ── -->
-                <h6 class="fw-semibold text-muted mb-3"><i class="fas fa-clock me-1"></i> Horários (expressão cron)</h6>
-                <div class="row g-3">
-                    <div class="col-12 col-md-6" id="fieldCollectionInterval">
-                        <label class="form-label fw-semibold">Coleta de Dados</label>
-                        <input type="text" class="form-control font-monospace" id="scCollection" placeholder="0 8-17 * * *">
-                        <div class="form-text">Intervalo em que a API APSystems é consultada.</div>
-                    </div>
+                    <!-- Coleta Agendada -->
                     <div class="col-12 col-md-6">
-                        <label class="form-label fw-semibold">Resumo Vespertino (Email)</label>
-                        <input type="text" class="form-control font-monospace" id="scEveningSummary" placeholder="0 17 * * *">
-                        <div class="form-text">Envio do email de resumo ao fim do dia solar.</div>
+                        <div class="card border-2 h-100 job-card" id="cardCollectionEnabled">
+                            <div class="card-header d-flex align-items-center gap-2 py-2 job-card-hdr">
+                                <i class="fas fa-download fa-fw text-primary"></i>
+                                <span class="fw-semibold flex-grow-1">Coleta Agendada</span>
+                                <span class="badge rounded-pill bg-success" id="badgeCollection">ATIVO</span>
+                                <div class="form-check form-switch mb-0 ms-1">
+                                    <input class="form-check-input" type="checkbox" role="switch"
+                                           id="scCollectionEnabled" style="width:2.2em;height:1.2em"
+                                           onchange="onJobToggle('scCollectionEnabled','cardCollectionEnabled','badgeCollection','fieldCollectionCron','cronPrevCollection')">
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted small mb-3">Consulta a API APSystems e persiste os dados de geração solar no banco de dados local.</p>
+                                <div id="fieldCollectionCron">
+                                    <input type="hidden" id="scCollection">
+                                    <div id="widget_collection" class="mb-1"></div>
+                                    <div id="cronPrevCollection" class="small cron-preview"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-12 col-md-6">
-                        <label class="form-label fw-semibold">Cálculo de Estatísticas</label>
-                        <input type="text" class="form-control font-monospace" id="scStatistics" placeholder="55 23 * * *">
-                        <div class="form-text">Relatório diário por email e consolidação de totais.</div>
-                    </div>
-                    <div class="col-12 col-md-6" id="fieldCleanupInterval">
-                        <label class="form-label fw-semibold">Limpeza de Dados Antigos</label>
-                        <input type="text" class="form-control font-monospace" id="scCleanup" placeholder="0 2 * * 0">
-                        <div class="form-text">Frequência da limpeza automática do banco de dados.</div>
-                    </div>
-                </div>
 
-                <div class="mt-4 d-flex gap-2 flex-wrap">
-                    <button class="btn btn-warning" onclick="saveSection('scheduler')">
-                        <i class="fas fa-save"></i> Salvar Agendamentos
+                    <!-- Coletar ao Iniciar -->
+                    <div class="col-12 col-md-6">
+                        <div class="card border-2 h-100 job-card" id="cardStartupCollection">
+                            <div class="card-header d-flex align-items-center gap-2 py-2 job-card-hdr">
+                                <i class="fas fa-play-circle fa-fw text-success"></i>
+                                <span class="fw-semibold flex-grow-1">Coletar ao Iniciar</span>
+                                <span class="badge rounded-pill bg-secondary" id="badgeStartup">INATIVO</span>
+                                <div class="form-check form-switch mb-0 ms-1">
+                                    <input class="form-check-input" type="checkbox" role="switch"
+                                           id="scCollectionOnStartup" style="width:2.2em;height:1.2em"
+                                           onchange="onJobToggle('scCollectionOnStartup','cardStartupCollection','badgeStartup',null,null)">
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted small mb-2">Executa uma coleta imediatamente ao iniciar o scheduler, sem aguardar o próximo horário agendado.</p>
+                                <div class="alert alert-secondary py-1 px-2 small mb-0">
+                                    <i class="fas fa-link me-1 text-muted"></i>
+                                    Depende da <strong>Coleta Agendada</strong> estar ativa.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resumo Vespertino -->
+                    <div class="col-12 col-md-6">
+                        <div class="card border-2 h-100 job-card" id="cardEveningSummaryEnabled">
+                            <div class="card-header d-flex align-items-center gap-2 py-2 job-card-hdr">
+                                <i class="fas fa-moon fa-fw text-warning"></i>
+                                <span class="fw-semibold flex-grow-1">Resumo Vespertino</span>
+                                <span class="badge rounded-pill bg-success" id="badgeEvening">ATIVO</span>
+                                <div class="form-check form-switch mb-0 ms-1">
+                                    <input class="form-check-input" type="checkbox" role="switch"
+                                           id="scEveningSummaryEnabled" style="width:2.2em;height:1.2em"
+                                           onchange="onJobToggle('scEveningSummaryEnabled','cardEveningSummaryEnabled','badgeEvening','fieldEveningCron','cronPrevEvening')">
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted small mb-3">Envia um email de resumo do dia solar para todos os destinatários configurados.</p>
+                                <div id="fieldEveningCron">
+                                    <input type="hidden" id="scEveningSummary">
+                                    <div id="widget_evening" class="mb-1"></div>
+                                    <div id="cronPrevEvening" class="small cron-preview"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cálculo de Estatísticas -->
+                    <div class="col-12 col-md-6">
+                        <div class="card border-2 h-100 job-card" id="cardStatisticsEnabled">
+                            <div class="card-header d-flex align-items-center gap-2 py-2 job-card-hdr">
+                                <i class="fas fa-chart-bar fa-fw text-info"></i>
+                                <span class="fw-semibold flex-grow-1">Cálculo de Estatísticas</span>
+                                <span class="badge rounded-pill bg-success" id="badgeStats">ATIVO</span>
+                                <div class="form-check form-switch mb-0 ms-1">
+                                    <input class="form-check-input" type="checkbox" role="switch"
+                                           id="scStatisticsEnabled" style="width:2.2em;height:1.2em"
+                                           onchange="onJobToggle('scStatisticsEnabled','cardStatisticsEnabled','badgeStats','fieldStatsCron','cronPrevStats')">
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted small mb-3">Consolida os totais do dia no banco de dados e envia o relatório diário por email.</p>
+                                <div id="fieldStatsCron">
+                                    <input type="hidden" id="scStatistics">
+                                    <div id="widget_statistics" class="mb-1"></div>
+                                    <div id="cronPrevStats" class="small cron-preview"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Limpeza de Dados -->
+                    <div class="col-12 col-md-6">
+                        <div class="card border-2 h-100 job-card" id="cardCleanupEnabled">
+                            <div class="card-header d-flex align-items-center gap-2 py-2 job-card-hdr">
+                                <i class="fas fa-broom fa-fw text-danger"></i>
+                                <span class="fw-semibold flex-grow-1">Limpeza de Dados</span>
+                                <span class="badge rounded-pill bg-success" id="badgeCleanup">ATIVO</span>
+                                <div class="form-check form-switch mb-0 ms-1">
+                                    <input class="form-check-input" type="checkbox" role="switch"
+                                           id="scCleanupEnabled" style="width:2.2em;height:1.2em"
+                                           onchange="onJobToggle('scCleanupEnabled','cardCleanupEnabled','badgeCleanup','fieldCleanupCron','cronPrevCleanup')">
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted small mb-3">Remove automaticamente registros com mais de 6 meses do banco de dados local.</p>
+                                <div id="fieldCleanupCron">
+                                    <input type="hidden" id="scCleanup">
+                                    <div id="widget_cleanup" class="mb-1"></div>
+                                    <div id="cronPrevCleanup" class="small cron-preview"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /row jobs -->
+
+                <!-- ── Salvar ─────────────────────────────────────────── -->
+                <div class="d-flex gap-2 flex-wrap align-items-center">
+                    <button class="btn btn-warning fw-semibold px-4" onclick="saveAndRestartScheduler()" id="btnSaveScheduler">
+                        <i class="fas fa-save me-1"></i> Salvar e Reiniciar Scheduler
                     </button>
                 </div>
                 <div id="feedback-scheduler" class="mt-3"></div>
 
-                <!-- Referência cron -->
+                <!-- ── Referência cron (colapsível) ──────────────────── -->
                 <hr class="my-4">
-                <h6 class="text-muted fw-bold">Referência Cron</h6>
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered small">
-                        <thead class="table-light"><tr><th>Campo</th><th>Valores</th><th>Exemplo</th></tr></thead>
-                        <tbody>
-                            <tr><td>Minuto</td><td>0–59</td><td><code>30</code></td></tr>
-                            <tr><td>Hora</td><td>0–23</td><td><code>8-17</code> (faixa), <code>*/2</code> (a cada 2h)</td></tr>
-                            <tr><td>Dia do mês</td><td>1–31</td><td><code>*</code> (todos)</td></tr>
-                            <tr><td>Mês</td><td>1–12</td><td><code>*</code></td></tr>
-                            <tr><td>Dia da semana</td><td>0–6 (Dom=0)</td><td><code>1-5</code> (seg–sex)</td></tr>
-                        </tbody>
-                    </table>
+                <a class="text-muted small text-decoration-none d-inline-flex align-items-center gap-1"
+                   data-bs-toggle="collapse" href="#cronReference" role="button">
+                    <i class="fas fa-question-circle"></i>
+                    <span>Referência de sintaxe cron</span>
+                    <i class="fas fa-chevron-down" style="font-size:.7em;"></i>
+                </a>
+                <div class="collapse mt-2" id="cronReference">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered small mb-1">
+                            <thead class="table-light">
+                                <tr><th>Campo</th><th>Valores</th><th>Exemplo</th><th>Significado</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>Minuto</td><td>0–59</td><td><code>30</code></td><td>Aos 30 minutos</td></tr>
+                                <tr><td>Hora</td><td>0–23</td><td><code>8-17</code></td><td>Faixa de 8h às 17h</td></tr>
+                                <tr><td>Dia do mês</td><td>1–31</td><td><code>*</code></td><td>Todos os dias</td></tr>
+                                <tr><td>Mês</td><td>1–12</td><td><code>*</code></td><td>Todos os meses</td></tr>
+                                <tr><td>Dia da semana</td><td>0–6 (Dom=0)</td><td><code>1-5</code></td><td>Seg a Sex</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="small text-muted mb-0">
+                        Exemplos: <code>0 18 * * *</code> diariamente às 18h &nbsp;·&nbsp;
+                        <code>0 2 * * 0</code> toda domingo às 2h &nbsp;·&nbsp;
+                        <code>*/30 * * * *</code> a cada 30 minutos
+                    </p>
                 </div>
+
             </div>
         </div>
     </div>
@@ -381,33 +487,337 @@ function feedback(section, msg, type) {
     if (type === 'success') setTimeout(() => { el.innerHTML = ''; }, 5000);
 }
 
-// ── Toggles de ativação (visual feedback) ─────────────────────────────────
-function toggleCollectionFields() {
-    const enabled = document.getElementById('scCollectionEnabled').checked;
-    const field   = document.getElementById('fieldCollectionInterval');
-    const startupSwitch = document.getElementById('scCollectionOnStartup');
-    if (field) {
-        field.style.opacity = enabled ? '1' : '0.4';
-        field.querySelector('input').disabled = !enabled;
-    }
-    if (startupSwitch) startupSwitch.disabled = !enabled;
+// ── Cron helpers ───────────────────────────────────────────────────────────
+const DAYS_PT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
-    // Destaque visual no card
-    const card = document.getElementById('scCollectionEnabled').closest('.card');
-    card.classList.toggle('border-primary', enabled);
-    card.classList.toggle('border-danger',  !enabled);
+function parseCronHuman(cron) {
+    if (!cron || typeof cron !== 'string') return '';
+    const p = cron.trim().split(/\s+/);
+    if (p.length !== 5)
+        return '<span class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>5 campos esperados</span>';
+    const [min, hour, dom, month, dow] = p;
+    const h = parseInt(hour), m = parseInt(min);
+    const ok = !isNaN(h) && !isNaN(m) && h >= 0 && h <= 23 && m >= 0 && m <= 59;
+    const ts = ok ? `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}` : null;
+    if (dom === '*' && month === '*' && dow === '*' && ts)
+        return `<i class="fas fa-calendar-check text-success me-1"></i>Diariamente às <strong>${ts}</strong>`;
+    if (dom === '*' && month === '*' && dow !== '*' && ts) {
+        const d = !isNaN(parseInt(dow)) ? DAYS_PT[parseInt(dow) % 7] : dow;
+        return `<i class="fas fa-calendar-week text-info me-1"></i>Toda <strong>${d}</strong> às <strong>${ts}</strong>`;
+    }
+    if (min.startsWith('*/') && hour === '*' && dom === '*' && month === '*' && dow === '*')
+        return `<i class="fas fa-redo text-primary me-1"></i>A cada <strong>${min.slice(2)} minutos</strong>`;
+    if (min === '0' && hour.startsWith('*/') && dom === '*' && month === '*' && dow === '*')
+        return `<i class="fas fa-redo text-primary me-1"></i>A cada <strong>${hour.slice(2)} horas</strong>`;
+    return `<i class="fas fa-clock text-muted me-1"></i><code>${cron}</code>`;
 }
 
-function toggleCleanupField() {
-    const enabled = document.getElementById('scCleanupEnabled').checked;
-    const field   = document.getElementById('fieldCleanupInterval');
-    if (field) {
-        field.style.opacity = enabled ? '1' : '0.4';
-        field.querySelector('input').disabled = !enabled;
+function getNextRun(cron) {
+    if (!cron) return null;
+    const p = cron.trim().split(/\s+/);
+    if (p.length !== 5) return null;
+    const [min, hour, dom, month, dow] = p;
+    const h = parseInt(hour), m = parseInt(min);
+    if (isNaN(h) || isNaN(m) || dom !== '*' || month !== '*') return null;
+    const now = new Date(), next = new Date(now);
+    if (dow === '*') {
+        next.setHours(h, m, 0, 0);
+        if (next <= now) next.setDate(next.getDate() + 1);
+    } else {
+        const t = parseInt(dow);
+        if (isNaN(t)) return null;
+        let days = (t - now.getDay() + 7) % 7;
+        next.setHours(h, m, 0, 0);
+        if (days === 0 && next <= now) days = 7;
+        next.setDate(next.getDate() + days);
     }
-    const card = document.getElementById('scCleanupEnabled').closest('.card');
-    card.classList.toggle('border-danger', !enabled);
-    card.classList.toggle('border-primary', enabled);
+    return next;
+}
+
+function formatNextRun(dt) {
+    if (!dt) return null;
+    const now  = new Date();
+    const days = Math.round((dt - now) / 86400000);
+    const ts   = `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    const isToday    = dt.toDateString() === now.toDateString();
+    const isTomorrow = dt.toDateString() === new Date(now.getTime() + 86400000).toDateString();
+    return `${isToday ? 'hoje' : isTomorrow ? 'amanhã' : `em ${days}d`} às ${ts}`;
+}
+
+function updateCronPreview(inputId, previewId) {
+    if (!previewId) return;
+    const val = document.getElementById(inputId)?.value?.trim() || '';
+    const el  = document.getElementById(previewId);
+    if (!el) return;
+    if (!val) { el.innerHTML = ''; renderTimeline(); return; }
+    const human   = parseCronHuman(val);
+    const next    = getNextRun(val);
+    const nextStr = next
+        ? `<span class="text-muted ms-2">· próxima: <strong>${formatNextRun(next)}</strong></span>`
+        : '';
+    el.innerHTML = `<span class="text-secondary">${human}</span>${nextStr}`;
+    renderTimeline();
+}
+
+// ── Job toggle ─────────────────────────────────────────────────────────────
+function onJobToggle(switchId, cardId, badgeId, fieldId, previewId) {
+    const enabled = document.getElementById(switchId)?.checked;
+    const card    = document.getElementById(cardId);
+    const badge   = document.getElementById(badgeId);
+    const field   = document.getElementById(fieldId);
+    if (card) {
+        card.classList.toggle('job-active',   enabled);
+        card.classList.toggle('job-inactive', !enabled);
+    }
+    if (badge) {
+        badge.textContent = enabled ? 'ATIVO' : 'INATIVO';
+        badge.className   = `badge rounded-pill ${enabled ? 'bg-success' : 'bg-secondary'}`;
+    }
+    if (field) {
+        field.style.opacity       = enabled ? '1' : '0.45';
+        field.style.pointerEvents = enabled ? '' : 'none';
+    }
+    if (switchId === 'scCollectionEnabled') {
+        const startup     = document.getElementById('scCollectionOnStartup');
+        const startupCard = document.getElementById('cardStartupCollection');
+        if (startup)     startup.disabled = !enabled;
+        if (startupCard) {
+            startupCard.style.opacity       = enabled ? '' : '0.5';
+            startupCard.style.pointerEvents = enabled ? '' : 'none';
+        }
+    }
+    renderTimeline();
+}
+
+// ── Timeline ───────────────────────────────────────────────────────────────
+const JOB_TIMELINE = [
+    { cronId:'scCollection',     enabledId:'scCollectionEnabled',     label:'Coleta',  color:'#0d6efd' },
+    { cronId:'scEveningSummary', enabledId:'scEveningSummaryEnabled', label:'Resumo',  color:'#ffc107' },
+    { cronId:'scStatistics',     enabledId:'scStatisticsEnabled',     label:'Estat.',  color:'#0dcaf0' },
+    { cronId:'scCleanup',        enabledId:'scCleanupEnabled',        label:'Limpeza', color:'#dc3545' },
+];
+
+function renderTimeline() {
+    const container = document.getElementById('scheduleTimeline');
+    if (!container) return;
+    const now     = new Date();
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    const nowPct  = nowMins / 1440 * 100;
+    let html = '';
+    // Grid + hour labels
+    [0,3,6,9,12,15,18,21,24].forEach(h => {
+        const pct = h / 24 * 100;
+        html += `<div class="position-absolute" style="left:${pct}%;top:0;bottom:0;border-left:1px dashed #dee2e6;pointer-events:none;"></div>`;
+        if (h < 24)
+            html += `<div class="position-absolute" style="left:${pct}%;top:2px;font-size:.6rem;color:#adb5bd;transform:translateX(-50%);white-space:nowrap;line-height:1;">${String(h).padStart(2,'0')}h</div>`;
+    });
+    // Bar
+    html += `<div class="position-absolute bg-white border rounded" style="left:0;right:0;top:22px;height:8px;z-index:1;"></div>`;
+    html += `<div class="position-absolute rounded-start" style="left:0;width:${nowPct}%;top:22px;height:8px;background:rgba(13,110,253,.12);z-index:2;"></div>`;
+    // Job markers
+    JOB_TIMELINE.forEach(job => {
+        const cron    = document.getElementById(job.cronId)?.value?.trim();
+        const enabled = document.getElementById(job.enabledId)?.checked;
+        if (!cron) return;
+        const p = cron.trim().split(/\s+/);
+        if (p.length !== 5) return;
+        const h = parseInt(p[1]), m = parseInt(p[0]);
+        if (isNaN(h) || isNaN(m)) return;
+        const pct    = (h * 60 + m) / 1440 * 100;
+        const color  = enabled ? job.color : '#ced4da';
+        const isPast = (h * 60 + m) < nowMins;
+        const op     = isPast && enabled ? '.55' : '1';
+        const ts     = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+        html += `<div class="position-absolute" style="left:${pct}%;top:17px;transform:translateX(-50%);z-index:3;opacity:${op};" title="${job.label} — ${ts}">`;
+        html += `  <div style="width:13px;height:13px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 0 1.5px ${color};margin:0 auto;"></div>`;
+        html += `  <div style="font-size:.6rem;text-align:center;color:${color};white-space:nowrap;margin-top:14px;font-weight:700;line-height:1.1;">${job.label}</div>`;
+        html += `  <div style="font-size:.57rem;text-align:center;color:#6c757d;white-space:nowrap;">${ts}</div>`;
+        html += `</div>`;
+    });
+    // "Now" indicator
+    html += `<div class="position-absolute" style="left:${nowPct}%;top:14px;height:22px;width:2px;background:#6c757d;opacity:.6;transform:translateX(-50%);z-index:4;border-radius:1px;" title="Agora"></div>`;
+    html += `<div class="position-absolute" style="left:${nowPct}%;top:1px;transform:translateX(-50%);font-size:.58rem;color:#6c757d;z-index:4;line-height:1;font-weight:700;">▼</div>`;
+    container.innerHTML = html;
+    const el = document.getElementById('tlCurrentTime');
+    if (el) el.textContent = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+}
+
+// ── Cron widget ────────────────────────────────────────────────────────────
+const _ws = {}; // widget state keyed by jobId
+
+const JOB_WIDGET_MAP = [
+    { jobId:'collection', inputId:'scCollection',    previewId:'cronPrevCollection' },
+    { jobId:'evening',    inputId:'scEveningSummary', previewId:'cronPrevEvening'   },
+    { jobId:'statistics', inputId:'scStatistics',    previewId:'cronPrevStats'      },
+    { jobId:'cleanup',    inputId:'scCleanup',       previewId:'cronPrevCleanup'    },
+];
+
+function parseCronToState(cron) {
+    if (!cron) return { freq:'daily', hour:18, min:0, dow:0 };
+    const p = cron.trim().split(/\s+/);
+    if (p.length !== 5) return { freq:'custom', raw:cron, hour:0, min:0, dow:0 };
+    const [min, hour, dom, month, dow] = p;
+    const h = parseInt(hour), m = parseInt(min);
+    if (dom === '*' && month === '*' && !isNaN(h) && !isNaN(m)) {
+        if (dow === '*') return { freq:'daily',  hour:h, min:m, dow:0 };
+        const d = parseInt(dow);
+        if (!isNaN(d))   return { freq:'weekly', hour:h, min:m, dow:d };
+    }
+    return { freq:'custom', raw:cron, hour:0, min:0, dow:0 };
+}
+
+function computeCron(jobId) {
+    const s = _ws[jobId] || {};
+    if (s.freq === 'daily')  return `${s.min ?? 0} ${s.hour ?? 0} * * *`;
+    if (s.freq === 'weekly') return `${s.min ?? 0} ${s.hour ?? 0} * * ${s.dow ?? 0}`;
+    return s.raw || '';
+}
+
+function syncCronFromWidget(jobId) {
+    const m = JOB_WIDGET_MAP.find(x => x.jobId === jobId);
+    if (!m) return;
+    const cron = computeCron(jobId);
+    const inp  = document.getElementById(m.inputId);
+    if (inp) inp.value = cron;
+    updateCronPreview(m.inputId, m.previewId);
+}
+
+function buildCronWidget(jobId) {
+    const container = document.getElementById(`widget_${jobId}`);
+    if (!container) return;
+    const s = _ws[jobId] || (_ws[jobId] = { freq:'daily', hour:18, min:0, dow:0 });
+
+    // Hour options 00-23
+    let hOpts = '';
+    for (let h = 0; h <= 23; h++)
+        hOpts += `<option value="${h}"${h === s.hour ? ' selected' : ''}>${String(h).padStart(2,'0')}</option>`;
+
+    // Minute options (every 5 min + current value if non-standard)
+    const minSet = new Set([0,5,10,15,20,25,30,35,40,45,50,55]);
+    if (s.min !== undefined) minSet.add(s.min);
+    let mOpts = '';
+    [...minSet].sort((a,b) => a - b).forEach(m =>
+        mOpts += `<option value="${m}"${m === s.min ? ' selected' : ''}>${String(m).padStart(2,'0')}</option>`
+    );
+
+    // Day-of-week buttons
+    const dayBtns = DAYS_PT.map((d, i) => {
+        const sel = s.freq === 'weekly' && s.dow === i;
+        return `<button type="button" class="btn btn-sm px-2 day-btn ${sel ? 'btn-primary' : 'btn-outline-secondary'}"
+                        data-job="${jobId}" data-dow="${i}"
+                        onclick="onDayClick('${jobId}',${i})">${d}</button>`;
+    }).join('');
+
+    const isW = s.freq === 'weekly', isC = s.freq === 'custom';
+
+    container.innerHTML = `
+<div class="d-flex mb-2">
+  <div class="btn-group btn-group-sm w-100" role="group">
+    <input type="radio" class="btn-check" name="freq_${jobId}" id="freqD_${jobId}" autocomplete="off"${s.freq==='daily'?' checked':''}>
+    <label class="btn btn-outline-primary" for="freqD_${jobId}" onclick="onFreqChange('${jobId}','daily')">
+      <i class="fas fa-sun me-1"></i>Diário
+    </label>
+    <input type="radio" class="btn-check" name="freq_${jobId}" id="freqW_${jobId}" autocomplete="off"${s.freq==='weekly'?' checked':''}>
+    <label class="btn btn-outline-primary" for="freqW_${jobId}" onclick="onFreqChange('${jobId}','weekly')">
+      <i class="fas fa-calendar-week me-1"></i>Semanal
+    </label>
+    <input type="radio" class="btn-check" name="freq_${jobId}" id="freqC_${jobId}" autocomplete="off"${s.freq==='custom'?' checked':''}>
+    <label class="btn btn-outline-secondary" for="freqC_${jobId}" onclick="onFreqChange('${jobId}','custom')">
+      <i class="fas fa-terminal me-1"></i>Cron
+    </label>
+  </div>
+</div>
+<div id="dayRow_${jobId}" class="d-flex align-items-center gap-1 mb-2 flex-wrap"
+     style="display:${isW ? 'flex' : 'none'};">
+  <span class="small text-muted me-1">Dia:</span>${dayBtns}
+</div>
+<div id="timeRow_${jobId}" class="d-flex align-items-center gap-2 mb-1"
+     style="display:${!isC ? 'flex' : 'none'};">
+  <span class="small text-muted"><i class="fas fa-clock me-1"></i>Horário</span>
+  <select class="form-select form-select-sm font-monospace" id="hourSel_${jobId}" style="width:72px"
+          onchange="onTimeChange('${jobId}')">${hOpts}</select>
+  <span class="fw-bold text-secondary">:</span>
+  <select class="form-select form-select-sm font-monospace" id="minSel_${jobId}" style="width:72px"
+          onchange="onTimeChange('${jobId}')">${mOpts}</select>
+</div>
+<div id="customRow_${jobId}" style="display:${isC ? 'block' : 'none'};">
+  <input type="text" class="form-control form-control-sm font-monospace"
+         id="customCron_${jobId}" placeholder="0 18 * * *" value="${isC ? (s.raw || '') : ''}"
+         oninput="onCustomInput('${jobId}')">
+  <div class="form-text">Sintaxe: minuto hora dia-mês mês dia-semana</div>
+</div>`;
+}
+
+function onFreqChange(jobId, freq) {
+    const s = _ws[jobId] = _ws[jobId] || {};
+    // Switching TO custom: capture computed cron as starting raw value
+    if (freq === 'custom' && s.freq !== 'custom') {
+        s.raw = computeCron(jobId);
+        const ci = document.getElementById(`customCron_${jobId}`);
+        if (ci) ci.value = s.raw;
+    }
+    // Switching FROM custom: try to parse the typed cron back
+    if (s.freq === 'custom' && freq !== 'custom') {
+        const raw = document.getElementById(`customCron_${jobId}`)?.value?.trim() || s.raw || '';
+        const parsed = parseCronToState(raw);
+        if (parsed.freq !== 'custom') {
+            s.hour = parsed.hour; s.min = parsed.min; s.dow = parsed.dow;
+        }
+    }
+    s.freq = freq;
+    if (freq === 'weekly' && s.dow === undefined) s.dow = 0;
+
+    const dayRow    = document.getElementById(`dayRow_${jobId}`);
+    const timeRow   = document.getElementById(`timeRow_${jobId}`);
+    const customRow = document.getElementById(`customRow_${jobId}`);
+    if (dayRow)    dayRow.style.display    = freq === 'weekly' ? 'flex'  : 'none';
+    if (timeRow)   timeRow.style.display   = freq !== 'custom' ? 'flex'  : 'none';
+    if (customRow) customRow.style.display = freq === 'custom' ? 'block' : 'none';
+
+    if (freq === 'weekly') updateDayButtons(jobId);
+    if (freq !== 'custom') {
+        const hs = document.getElementById(`hourSel_${jobId}`);
+        const ms = document.getElementById(`minSel_${jobId}`);
+        if (hs) hs.value = s.hour ?? 18;
+        if (ms) ms.value = s.min  ?? 0;
+    }
+    syncCronFromWidget(jobId);
+}
+
+function onDayClick(jobId, dow) {
+    (_ws[jobId] = _ws[jobId] || {}).dow = dow;
+    updateDayButtons(jobId);
+    syncCronFromWidget(jobId);
+}
+
+function updateDayButtons(jobId) {
+    const dow = _ws[jobId]?.dow;
+    document.querySelectorAll(`[data-job="${jobId}"].day-btn`).forEach(btn => {
+        const sel = parseInt(btn.dataset.dow) === dow;
+        btn.classList.toggle('btn-primary',          sel);
+        btn.classList.toggle('btn-outline-secondary', !sel);
+    });
+}
+
+function onTimeChange(jobId) {
+    const s = _ws[jobId] = _ws[jobId] || {};
+    s.hour = parseInt(document.getElementById(`hourSel_${jobId}`)?.value ?? 0);
+    s.min  = parseInt(document.getElementById(`minSel_${jobId}`)?.value  ?? 0);
+    syncCronFromWidget(jobId);
+}
+
+function onCustomInput(jobId) {
+    (_ws[jobId] = _ws[jobId] || {}).raw = document.getElementById(`customCron_${jobId}`)?.value || '';
+    syncCronFromWidget(jobId);
+}
+
+function initWidgets() {
+    JOB_WIDGET_MAP.forEach(({ jobId, inputId }) => {
+        const cron = document.getElementById(inputId)?.value?.trim() || '';
+        _ws[jobId] = parseCronToState(cron);
+        buildCronWidget(jobId);
+        syncCronFromWidget(jobId);
+    });
 }
 
 // ── Carrega todas as configs ───────────────────────────────────────────────
@@ -424,18 +834,26 @@ async function loadAll() {
         // Email
         document.getElementById('cfgSenderEmail').value = data.email.sender_email || '';
 
-        // Scheduler — flags booleanas
-        document.getElementById('scCollectionEnabled').checked   = data.scheduler.collection_enabled    !== false;
-        document.getElementById('scCollectionOnStartup').checked = data.scheduler.collection_on_startup === true;
-        document.getElementById('scCleanupEnabled').checked      = data.scheduler.cleanup_enabled       !== false;
-        toggleCollectionFields();
-        toggleCleanupField();
+        // Scheduler — flags
+        document.getElementById('scCollectionEnabled').checked     = data.scheduler.collection_enabled     !== false;
+        document.getElementById('scCollectionOnStartup').checked   = data.scheduler.collection_on_startup  === true;
+        document.getElementById('scEveningSummaryEnabled').checked = data.scheduler.evening_summary_enabled !== false;
+        document.getElementById('scStatisticsEnabled').checked     = data.scheduler.statistics_enabled      !== false;
+        document.getElementById('scCleanupEnabled').checked        = data.scheduler.cleanup_enabled         !== false;
+        // Aplicar estado visual
+        onJobToggle('scCollectionEnabled',     'cardCollectionEnabled',     'badgeCollection', 'fieldCollectionCron', 'cronPrevCollection');
+        onJobToggle('scCollectionOnStartup',   'cardStartupCollection',     'badgeStartup',    null,                  null);
+        onJobToggle('scEveningSummaryEnabled', 'cardEveningSummaryEnabled', 'badgeEvening',    'fieldEveningCron',    'cronPrevEvening');
+        onJobToggle('scStatisticsEnabled',     'cardStatisticsEnabled',     'badgeStats',      'fieldStatsCron',      'cronPrevStats');
+        onJobToggle('scCleanupEnabled',        'cardCleanupEnabled',        'badgeCleanup',    'fieldCleanupCron',    'cronPrevCleanup');
 
         // Scheduler — expressões cron
         document.getElementById('scCollection').value     = data.scheduler.collection_interval      || '';
         document.getElementById('scEveningSummary').value = data.scheduler.evening_summary_interval || '';
         document.getElementById('scStatistics').value     = data.scheduler.statistics_interval      || '';
         document.getElementById('scCleanup').value        = data.scheduler.cleanup_interval         || '';
+        // Inicializar widgets visuais (lê os valores das hidden inputs e constrói os controles)
+        initWidgets();
 
         // Sistema
         document.getElementById('sysPort').value  = data.web.port  || 5000;
@@ -458,9 +876,11 @@ async function saveSection(section) {
     } else if (section === 'scheduler') {
         url  = '/api/config/scheduler';
         body = {
-            collection_enabled:       document.getElementById('scCollectionEnabled').checked,
-            collection_on_startup:    document.getElementById('scCollectionOnStartup').checked,
-            cleanup_enabled:          document.getElementById('scCleanupEnabled').checked,
+            collection_enabled:      document.getElementById('scCollectionEnabled').checked,
+            collection_on_startup:   document.getElementById('scCollectionOnStartup').checked,
+            evening_summary_enabled: document.getElementById('scEveningSummaryEnabled').checked,
+            statistics_enabled:      document.getElementById('scStatisticsEnabled').checked,
+            cleanup_enabled:         document.getElementById('scCleanupEnabled').checked,
             collection_interval:      document.getElementById('scCollection').value.trim(),
             evening_summary_interval: document.getElementById('scEveningSummary').value.trim(),
             statistics_interval:      document.getElementById('scStatistics').value.trim(),
@@ -486,6 +906,51 @@ async function saveSection(section) {
             `<i class="fas fa-${data.status === 'success' ? 'check' : 'times'}"></i> ${data.message}`,
             data.status === 'success' ? 'success' : 'danger');
     } catch (e) { feedback(section, 'Erro ao salvar.', 'danger'); }
+}
+
+// ── Salvar e reiniciar scheduler ───────────────────────────────────────────
+async function saveAndRestartScheduler() {
+    const btn = document.getElementById('btnSaveScheduler');
+    btn.disabled = true;
+    try {
+        // 1. Salvar configuração
+        feedback('scheduler', '<i class="fas fa-spinner fa-spin"></i> Salvando configuração...', 'info');
+        const url  = '/api/config/scheduler';
+        const body = {
+            collection_enabled:      document.getElementById('scCollectionEnabled').checked,
+            collection_on_startup:   document.getElementById('scCollectionOnStartup').checked,
+            evening_summary_enabled: document.getElementById('scEveningSummaryEnabled').checked,
+            statistics_enabled:      document.getElementById('scStatisticsEnabled').checked,
+            cleanup_enabled:         document.getElementById('scCleanupEnabled').checked,
+            collection_interval:      document.getElementById('scCollection').value.trim(),
+            evening_summary_interval: document.getElementById('scEveningSummary').value.trim(),
+            statistics_interval:      document.getElementById('scStatistics').value.trim(),
+            cleanup_interval:         document.getElementById('scCleanup').value.trim()
+        };
+        const saveRes  = await fetch(url, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        const saveData = await saveRes.json();
+        if (saveData.status !== 'success') {
+            feedback('scheduler', `<i class="fas fa-times"></i> Erro ao salvar: ${saveData.message}`, 'danger');
+            return;
+        }
+
+        // 2. Reiniciar scheduler
+        feedback('scheduler', '<i class="fas fa-spinner fa-spin"></i> Reiniciando scheduler...', 'info');
+        const restartRes  = await fetch('/api/scheduler/restart', { method: 'POST' });
+        const restartData = await restartRes.json();
+        if (restartData.status === 'success') {
+            feedback('scheduler', '<i class="fas fa-check"></i> Configuração salva e scheduler reiniciado com sucesso.', 'success');
+        } else {
+            feedback('scheduler', `<i class="fas fa-exclamation-triangle"></i> Configuração salva, mas reinicialização falhou: ${restartData.message}`, 'warning');
+        }
+    } catch (e) {
+        feedback('scheduler', '<i class="fas fa-times"></i> Erro ao salvar/reiniciar.', 'danger');
+    } finally {
+        btn.disabled = false;
+    }
 }
 
 // ── Testar conexão API ─────────────────────────────────────────────────────
@@ -543,6 +1008,75 @@ async function sendDailyReport() {
             `<i class="fas fa-${data.status === 'success' ? 'check' : 'times'}"></i> ${data.message}`,
             data.status === 'success' ? 'success' : 'danger');
     } catch (e) { feedback('email', 'Erro ao enviar relatório.', 'danger'); }
+}
+
+// ── Email Log ───────────────────────────────────────────────────────────────
+let _emailLogs = [];
+let _emailLogFilter = 'all';
+
+async function loadEmailLog() {
+    try {
+        const res = await fetch('/api/email/log?limit=100');
+        const data = await res.json();
+        _emailLogs = data.logs || [];
+        renderEmailLog();
+    } catch (e) { console.error('loadEmailLog:', e); }
+}
+
+function filterEmailLog(type, btn) {
+    _emailLogFilter = type;
+    document.querySelectorAll('#emailLogFilter .btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderEmailLog();
+}
+
+function renderEmailLog() {
+    const container = document.getElementById('emailLogContainer');
+    if (!container) return;
+    const logs = _emailLogFilter === 'all'
+        ? _emailLogs
+        : _emailLogs.filter(l => l.email_type === _emailLogFilter);
+
+    if (!logs.length) {
+        container.innerHTML = '<p class="text-muted text-center py-3"><i class="fas fa-inbox me-1"></i>Nenhum envio registrado.</p>';
+        return;
+    }
+
+    const TYPE_COLORS = {
+        daily_report: 'primary', alert: 'danger',
+        evening_summary: 'warning', test: 'secondary', unknown: 'secondary'
+    };
+
+    const rows = logs.map(l => {
+        const color = TYPE_COLORS[l.email_type] || 'secondary';
+        const statusBadge = l.success
+            ? '<span class="badge bg-success"><i class="fas fa-check"></i> OK</span>'
+            : `<span class="badge bg-danger" title="${l.error_message || ''}"><i class="fas fa-times"></i> Erro</span>`;
+        const recipients = (l.recipients || []).join(', ') || '—';
+        return `<tr>
+            <td class="text-nowrap small">${l.sent_at}</td>
+            <td><span class="badge bg-${color}">${l.type_label}</span></td>
+            <td class="small">${l.subject}</td>
+            <td class="small text-muted">${recipients}</td>
+            <td>${statusBadge}</td>
+        </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Data/Hora</th>
+                        <th>Tipo</th>
+                        <th>Assunto</th>
+                        <th>Destinatários</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>`;
 }
 
 // ── Destinatários ──────────────────────────────────────────────────────────
@@ -643,6 +1177,8 @@ async function deleteRecipient(id, email) {
 document.addEventListener('DOMContentLoaded', () => {
     loadAll();
     loadRecipients();
+    loadEmailLog();
+    setInterval(renderTimeline, 60000); // atualiza indicador "agora" a cada minuto
 });
 </script>
 {% endblock %}
