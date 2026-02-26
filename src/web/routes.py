@@ -161,6 +161,32 @@ def register_routes(app):
         except Exception as e:
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
+    @app.route('/api/scheduler/log')
+    def api_scheduler_log():
+        """Retorna histórico de execuções dos jobs agendados."""
+        try:
+            limit = min(int(request.args.get('limit', 100)), 500)
+            job_name = request.args.get('job') or None
+            logs = Repository.get_scheduler_logs(limit=limit, job_name=job_name)
+            JOB_LABELS = {
+                'collection': 'Coleta', 'evening_summary': 'Resumo Vespertino',
+                'statistics': 'Estatísticas', 'cleanup': 'Limpeza', 'unknown': '—'
+            }
+            result = [{
+                'id': e.id,
+                'started_at': e.started_at.strftime('%d/%m/%Y %H:%M:%S'),
+                'finished_at': e.finished_at.strftime('%d/%m/%Y %H:%M:%S') if e.finished_at else None,
+                'job_name': e.job_name,
+                'job_label': JOB_LABELS.get(e.job_name, e.job_name),
+                'success': e.success,
+                'duration_seconds': e.duration_seconds,
+                'message': e.message,
+            } for e in logs]
+            return jsonify({'status': 'success', 'logs': result, 'total': len(result)})
+        except Exception as e:
+            logger.error(f"Erro ao buscar log do scheduler: {e}")
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
     @app.route('/api/scheduler/restart', methods=['POST'])
     def api_scheduler_restart():
         """Reinicia o processo do scheduler (main.py)."""
@@ -250,8 +276,11 @@ def register_routes(app):
             hourly_records = [d for d in data if d.panel_id == 'hourly' and d.timestamp.hour <= current_hour]
             current_power = hourly_records[-1].power_watts if hourly_records else 0
 
-            # Estatísticas do dia
-            stats = repository.get_daily_stats(today)
+            # Pico e média calculados direto dos registros horários (sem depender de statistics)
+            hourly_watts = [d.power_watts for d in data if d.panel_id == 'hourly']
+            peak_today = max(hourly_watts) if hourly_watts else 0
+            active_hours = [w for w in hourly_watts if w > 0]
+            average_today = sum(active_hours) / len(active_hours) if active_hours else 0
 
             response = {
                 'status': 'success',
@@ -259,8 +288,8 @@ def register_routes(app):
                 'current_power': current_power,
                 'energy_today': (aggregate.energy_kwh_daily or 0) if aggregate else 0,
                 'energy_total': (aggregate.energy_kwh_total or 0) if aggregate else 0,
-                'peak_today': stats.peak_power_watts if stats else 0,
-                'average_today': stats.average_power_watts if stats else 0
+                'peak_today': peak_today,
+                'average_today': average_today
             }
 
             return jsonify(response)
@@ -695,12 +724,22 @@ def register_routes(app):
 
     @app.route('/api/energy/prev-day')
     def api_energy_prev_day():
-        """Retorna geração do dia anterior (via Statistics)."""
+        """Retorna geração do dia anterior usando a mesma fonte que /api/current
+        (MAX de energy_kwh_daily na generation_data com panel_id IS NULL)."""
         try:
+            from sqlalchemy import func as _func
+            from ..database.models import db as _db, GenerationData as _GD
             yesterday = date.today() - timedelta(days=1)
-            repository = Repository()
-            stats = repository.get_daily_stats(yesterday)
-            kwh = float(stats.total_generation_kwh or 0) if stats else 0.0
+            session = _db.get_session()
+            try:
+                result = session.query(_func.max(_GD.energy_kwh_daily)).filter(
+                    _func.date(_GD.timestamp) == yesterday.isoformat(),
+                    _GD.panel_id.is_(None),
+                    _GD.energy_kwh_daily.isnot(None)
+                ).scalar()
+                kwh = float(result or 0)
+            finally:
+                session.close()
             return jsonify({'status': 'success', 'date': yesterday.isoformat(), 'kwh': kwh})
         except Exception as e:
             logger.error(f"Erro ao buscar energia do dia anterior: {e}")

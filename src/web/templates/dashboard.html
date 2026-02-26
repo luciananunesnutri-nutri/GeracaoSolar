@@ -628,7 +628,8 @@
 
     function navigateDay(direction) {
         // direction: -1 = mais antigo (prev), +1 = mais recente (next)
-        const newIdx = selectedDateIdx + direction;
+        // array é decrescente (índice 0 = mais recente), então mais antigo = índice maior
+        const newIdx = selectedDateIdx - direction;
         if (newIdx < 0 || newIdx >= availableDates.length) return;
         selectedDateIdx = newIdx;
         selectedDate = availableDates[selectedDateIdx];

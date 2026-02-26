@@ -161,6 +161,22 @@ class InverterSummary(Base):
         return f"<InverterSummary(uid='{self.inverter_uid}', timestamp='{self.timestamp}')>"
 
 
+class SchedulerLog(Base):
+    """Log de execuções dos jobs agendados."""
+    __tablename__ = 'scheduler_log'
+
+    id = Column(Integer, primary_key=True)
+    started_at = Column(DateTime, nullable=False, default=datetime.now, index=True)
+    finished_at = Column(DateTime, nullable=True)
+    job_name = Column(String(50), nullable=False, index=True)
+    success = Column(Boolean, nullable=False)
+    duration_seconds = Column(Float, nullable=True)
+    message = Column(Text, nullable=True)
+
+    def __repr__(self):
+        return f"<SchedulerLog(job='{self.job_name}', success={self.success}, started_at='{self.started_at}')>"
+
+
 class AlertRecipient(Base):
     """Destinatários de alertas e relatórios por email."""
     __tablename__ = 'alert_recipients'

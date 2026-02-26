@@ -4,7 +4,7 @@ from sqlalchemy import func, and_
 from .models import (
     db, GenerationData, Statistics, Alert, SystemStatusModel,
     EcuTelemetry, InverterBatchData, MeterData, InverterSummary,
-    AlertRecipient, EmailLog, PeriodType, AlertType, Severity, SystemStatus
+    AlertRecipient, EmailLog, SchedulerLog, PeriodType, AlertType, Severity, SystemStatus
 )
 from ..utils.logger import logger
 
@@ -713,5 +713,37 @@ class Repository:
             if email_type:
                 q = q.filter(EmailLog.email_type == email_type)
             return q.order_by(EmailLog.sent_at.desc()).limit(limit).all()
+        finally:
+            session.close()
+
+    @staticmethod
+    def save_scheduler_log(data: Dict) -> SchedulerLog:
+        """Registra a execução de um job agendado."""
+        session = db.get_session()
+        try:
+            entry = SchedulerLog(
+                started_at=data.get('started_at'),
+                finished_at=data.get('finished_at'),
+                job_name=data.get('job_name', 'unknown'),
+                success=bool(data.get('success', False)),
+                duration_seconds=data.get('duration_seconds'),
+                message=data.get('message'),
+            )
+            session.add(entry)
+            session.commit()
+            session.refresh(entry)
+            return entry
+        finally:
+            session.close()
+
+    @staticmethod
+    def get_scheduler_logs(limit: int = 100, job_name: str = None) -> List[SchedulerLog]:
+        """Retorna o histórico de execuções dos jobs, do mais recente ao mais antigo."""
+        session = db.get_session()
+        try:
+            q = session.query(SchedulerLog)
+            if job_name:
+                q = q.filter(SchedulerLog.job_name == job_name)
+            return q.order_by(SchedulerLog.started_at.desc()).limit(limit).all()
         finally:
             session.close()

@@ -9,6 +9,23 @@ from ..alerts.alert_manager import AlertManager
 from ..utils.logger import logger
 
 
+def _log_job(job_name: str, started_at: datetime, success: bool, message: str = None):
+    """Salva o resultado de uma execução de job no banco. Erros aqui são silenciosos."""
+    try:
+        finished_at = datetime.now()
+        duration = (finished_at - started_at).total_seconds()
+        Repository.save_scheduler_log({
+            'job_name': job_name,
+            'started_at': started_at,
+            'finished_at': finished_at,
+            'success': success,
+            'duration_seconds': round(duration, 1),
+            'message': message,
+        })
+    except Exception as e:
+        logger.warning(f"Erro ao salvar log do scheduler: {e}")
+
+
 def load_config():
     """Carrega configurações."""
     config_path = Path(__file__).parent.parent.parent / "config" / "config.yaml"
@@ -28,6 +45,7 @@ def collect_solar_data():
     Job principal: Coleta dados de geração solar.
     Executado a cada hora.
     """
+    _job_started_at = datetime.now()
     logger.info("=" * 50)
     logger.info("Iniciando coleta de dados solares")
     logger.info("=" * 50)
@@ -200,10 +218,12 @@ def collect_solar_data():
 
         logger.info("Coleta de dados concluída com sucesso")
         logger.info("=" * 50)
+        _log_job('collection', _job_started_at, True, "Coleta concluída com sucesso")
 
     except Exception as e:
         logger.error(f"Erro na coleta de dados: {e}", exc_info=True)
         logger.info("=" * 50)
+        _log_job('collection', _job_started_at, False, str(e))
         raise
 
 
@@ -212,6 +232,7 @@ def send_evening_summary():
     Envia resumo do dia por email às 17:00.
     Coleta os dados mais recentes e envia para todos os destinatários ativos.
     """
+    _job_started_at = datetime.now()
     logger.info("=" * 50)
     logger.info("Enviando resumo vespertino por email")
     logger.info("=" * 50)
@@ -283,11 +304,14 @@ def send_evening_summary():
 
         if success:
             logger.info("Resumo vespertino enviado com sucesso")
+            _log_job('evening_summary', _job_started_at, True, "Resumo vespertino enviado com sucesso")
         else:
             logger.warning("Falha ao enviar resumo vespertino")
+            _log_job('evening_summary', _job_started_at, False, "Falha ao enviar resumo vespertino")
 
     except Exception as e:
         logger.error(f"Erro no envio do resumo vespertino: {e}", exc_info=True)
+        _log_job('evening_summary', _job_started_at, False, str(e))
     finally:
         logger.info("=" * 50)
 
@@ -297,6 +321,7 @@ def calculate_statistics():
     Job secundário: Calcula estatísticas diárias.
     Executado diariamente às 23:55.
     """
+    _job_started_at = datetime.now()
     logger.info("=" * 50)
     logger.info("Iniciando cálculo de estatísticas")
     logger.info("=" * 50)
@@ -363,10 +388,12 @@ def calculate_statistics():
 
         logger.info("Cálculo de estatísticas concluído com sucesso")
         logger.info("=" * 50)
+        _log_job('statistics', _job_started_at, True, "Estatísticas calculadas com sucesso")
 
     except Exception as e:
         logger.error(f"Erro no cálculo de estatísticas: {e}", exc_info=True)
         logger.info("=" * 50)
+        _log_job('statistics', _job_started_at, False, str(e))
         raise
 
 
@@ -375,6 +402,7 @@ def cleanup_old_data():
     Job terciário: Limpa dados antigos.
     Executado semanalmente (domingos às 2h).
     """
+    _job_started_at = datetime.now()
     logger.info("=" * 50)
     logger.info("Iniciando limpeza de dados antigos")
     logger.info("=" * 50)
@@ -418,10 +446,12 @@ def cleanup_old_data():
 
         logger.info("Limpeza de dados concluída com sucesso")
         logger.info("=" * 50)
+        _log_job('cleanup', _job_started_at, True, "Limpeza de dados concluída com sucesso")
 
     except Exception as e:
         logger.error(f"Erro na limpeza de dados: {e}", exc_info=True)
         logger.info("=" * 50)
+        _log_job('cleanup', _job_started_at, False, str(e))
         raise
 
 
