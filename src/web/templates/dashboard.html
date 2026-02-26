@@ -51,7 +51,9 @@
         <div class="card stat-card h-100">
             <i class="fas fa-arrow-up fa-2x mb-3 text-success"></i>
             <div class="stat-value" id="peakPower">-- W</div>
+            <div id="peakEnergy" class="text-primary fw-semibold" style="font-size:1rem; min-height:1.2em;">-- kWh</div>
             <div class="stat-label">Pico Hoje</div>
+            <div id="peakPowerTime" class="text-muted mt-1" style="font-size:0.75rem; min-height:1.1em;"></div>
         </div>
     </div>
     <div class="col-6 col-md-3">
@@ -661,13 +663,13 @@
             btn.className = isTarget ? 'btn btn-light active' : 'btn btn-outline-light';
         });
         if (dailyCache[res]) {
-            renderDailyChart(dailyCache[res].labels, dailyCache[res].values, res);
+            renderDailyChart(dailyCache[res].labels, dailyCache[res].values, dailyCache[res].energy, dailyCache[res].rawEnergy, res);
         } else {
             updateDailyChart();
         }
     }
 
-    function renderDailyChart(labels, values, res) {
+    function renderDailyChart(labels, values, energy, rawEnergy, res) {
         // Ajustar largura do wrapper para viabilizar scroll horizontal
         const pxPerPoint = res === 'minutely' ? 14 : 36;
         const minW = Math.max(600, labels.length * pxPerPoint);
@@ -677,46 +679,114 @@
         document.getElementById('chartResolution').textContent = `${resLabel} · ${labels.length} pontos`;
 
         const pointRadius = labels.length > 40 ? 0 : 3;
+        const hasEnergy    = energy    && energy.length    === labels.length;
+        const hasRawEnergy = rawEnergy && rawEnergy.length === labels.length;
 
-        if (dailyChart) {
-            dailyChart.data.labels = labels;
-            dailyChart.data.datasets[0].data = values;
-            dailyChart.data.datasets[0].pointRadius = pointRadius;
-            dailyChart.update('none');
-        } else {
-            const ctx = document.getElementById('dailyChart').getContext('2d');
-            dailyChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels,
-                    datasets: [{
-                        label: 'Potência (W)',
-                        data: values,
-                        borderColor: '#28a745',
-                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { callback: v => v + ' W' }
-                        },
-                        x: {
-                            ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: res === 'minutely' ? 48 : 24 }
-                        }
-                    }
-                }
+        // Rótulo do eixo de energia bruta: kWh/5min ou kWh/h
+        const rawEnergyLabel = res === 'minutely' ? 'Energia/5min (kWh)' : 'Energia/h (kWh)';
+        const rawEnergyDecimalPlaces = res === 'minutely' ? 3 : 2;
+
+        const datasets = [
+            {
+                label: 'Potência (W)',
+                data: values,
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointRadius,
+                yAxisID: 'yPower'
+            }
+        ];
+        if (hasEnergy) {
+            datasets.push({
+                label: 'Energia acumulada (kWh)',
+                data: energy,
+                borderColor: '#0d6efd',
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                borderDash: [5, 4],
+                fill: false,
+                tension: 0.3,
+                pointRadius: 0,
+                yAxisID: 'yEnergy'
             });
         }
+        if (hasRawEnergy) {
+            datasets.push({
+                label: rawEnergyLabel,
+                data: rawEnergy,
+                borderColor: '#fd7e14',
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                fill: false,
+                tension: 0.3,
+                pointRadius: 0,
+                yAxisID: 'yRawEnergy'
+            });
+        }
+
+        if (dailyChart) {
+            dailyChart.destroy();
+            dailyChart = null;
+        }
+
+        const ctx = document.getElementById('dailyChart').getContext('2d');
+        dailyChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                plugins: {
+                    legend: {
+                        display: hasEnergy || hasRawEnergy,
+                        position: 'top',
+                        labels: { boxWidth: 16, font: { size: 11 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => {
+                                const v = ctx.parsed.y;
+                                if (ctx.dataset.yAxisID === 'yPower')
+                                    return ` ${ctx.dataset.label}: ${v >= 1000 ? (v/1000).toFixed(2) + ' kW' : v.toFixed(0) + ' W'}`;
+                                return ` ${ctx.dataset.label}: ${v.toFixed(rawEnergyDecimalPlaces)} kWh`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    yPower: {
+                        type: 'linear',
+                        position: 'left',
+                        beginAtZero: true,
+                        ticks: { callback: v => v >= 1000 ? (v/1000).toFixed(1) + ' kW' : v + ' W' }
+                    },
+                    yEnergy: {
+                        type: 'linear',
+                        position: 'right',
+                        beginAtZero: true,
+                        display: hasEnergy,
+                        grid: { drawOnChartArea: false },
+                        ticks: { callback: v => v.toFixed(1) + ' kWh' }
+                    },
+                    yRawEnergy: {
+                        type: 'linear',
+                        position: 'right',
+                        beginAtZero: true,
+                        display: hasRawEnergy,
+                        grid: { drawOnChartArea: false },
+                        ticks: { callback: v => v.toFixed(rawEnergyDecimalPlaces) + ' kWh' },
+                        afterFit: scale => { scale.width = 70; }
+                    },
+                    x: {
+                        ticks: { maxRotation: 45, autoSkip: true, maxTicksLimit: res === 'minutely' ? 48 : 24 }
+                    }
+                }
+            }
+        });
     }
 
     async function updateDailyChart() {
@@ -726,7 +796,24 @@
             if (res.ok) {
                 const data = await res.json();
                 if (data.status === 'success' && data.time.length > 0) {
-                    dailyCache.minutely = { labels: data.time, values: data.power };
+                    // Energia acumulada (soma progressiva dos incrementos)
+                    const rawE = (data.energy || []).map(v => +(v || 0).toFixed(4));
+                    const cumulE = [];
+                    let eSum = 0;
+                    for (const v of rawE) { eSum += v; cumulE.push(+eSum.toFixed(3)); }
+
+                    dailyCache.minutely = { labels: data.time, values: data.power, energy: cumulE, rawEnergy: rawE };
+
+                    // Pico de potência e energia (apenas para o dia selecionado)
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    if (selectedDate === todayStr && data.power.length) {
+                        const maxP = Math.max(...data.power);
+                        const peakIdx = data.power.lastIndexOf(maxP);
+                        const elTime = document.getElementById('peakPowerTime');
+                        if (elTime) elTime.textContent = `às ${data.time[peakIdx]}`;
+                        const elE = document.getElementById('peakEnergy');
+                        if (elE && cumulE.length) elE.textContent = `${cumulE[peakIdx].toFixed(2)} kWh`;
+                    }
                 }
             }
         } catch (e) {}
@@ -742,9 +829,18 @@
                 const cd = isToday
                     ? data.chart_data.filter(d => d.power > 0 || d.hour <= new Date().getHours())
                     : data.chart_data.filter(d => d.power > 0);
+                const filtered = cd.length ? cd : data.chart_data;
+                // Energia por hora: power (W) = kWh_hora * 1000, logo kWh = power/1000
+                const rawE = filtered.map(d => +(d.power / 1000).toFixed(3));
+                const cumulE = [];
+                let eSum = 0;
+                for (const v of rawE) { eSum += v; cumulE.push(+eSum.toFixed(2)); }
+
                 dailyCache.hourly = {
-                    labels: (cd.length ? cd : data.chart_data).map(d => `${String(d.hour).padStart(2,'0')}:00`),
-                    values: (cd.length ? cd : data.chart_data).map(d => d.power)
+                    labels: filtered.map(d => `${String(d.hour).padStart(2,'0')}:00`),
+                    values: filtered.map(d => d.power),
+                    energy: cumulE,
+                    rawEnergy: rawE
                 };
             }
         } catch (e) { console.error('dailyChart hourly:', e); }
@@ -757,7 +853,7 @@
         }
 
         const cache = dailyCache[dailyResolution];
-        if (cache) renderDailyChart(cache.labels, cache.values, dailyResolution);
+        if (cache) renderDailyChart(cache.labels, cache.values, cache.energy, cache.rawEnergy, dailyResolution);
     }
 
     // ── Painéis ───────────────────────────────────────────────────────────────

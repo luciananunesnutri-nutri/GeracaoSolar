@@ -276,9 +276,19 @@ def register_routes(app):
             hourly_records = [d for d in data if d.panel_id == 'hourly' and d.timestamp.hour <= current_hour]
             current_power = hourly_records[-1].power_watts if hourly_records else 0
 
-            # Pico e média calculados direto dos registros horários (sem depender de statistics)
+            # Pico calculado preferencialmente da telemetria minutely (mais preciso)
             hourly_watts = [d.power_watts for d in data if d.panel_id == 'hourly']
-            peak_today = max(hourly_watts) if hourly_watts else 0
+            peak_hourly = max(hourly_watts) if hourly_watts else 0
+
+            import json as _json
+            telemetry = repository.get_latest_ecu_telemetry_for_date(today)
+            if telemetry and telemetry.time_series:
+                ts = telemetry.time_series if isinstance(telemetry.time_series, dict) else _json.loads(telemetry.time_series)
+                minutely_watts = ts.get('power', [])
+                peak_today = max(minutely_watts) if minutely_watts else peak_hourly
+            else:
+                peak_today = peak_hourly
+
             active_hours = [w for w in hourly_watts if w > 0]
             average_today = sum(active_hours) / len(active_hours) if active_hours else 0
 

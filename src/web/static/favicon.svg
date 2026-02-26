@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="32" fill="#1a1a2e"/>
+  <!-- Sun rays -->
+  <g stroke="#f5a623" stroke-width="2.5" stroke-linecap="round">
+    <line x1="32" y1="6"  x2="32" y2="12"/>
+    <line x1="32" y1="52" x2="32" y2="58"/>
+    <line x1="6"  y1="32" x2="12" y2="32"/>
+    <line x1="52" y1="32" x2="58" y2="32"/>
+    <line x1="13.5" y1="13.5" x2="17.9" y2="17.9"/>
+    <line x1="46.1" y1="46.1" x2="50.5" y2="50.5"/>
+    <line x1="50.5" y1="13.5" x2="46.1" y2="17.9"/>
+    <line x1="17.9" y1="46.1" x2="13.5" y2="50.5"/>
+  </g>
+  <!-- Sun core -->
+  <circle cx="32" cy="32" r="10" fill="#f5a623"/>
+  <!-- Solar panel grid overlay -->
+  <rect x="24" y="26" width="16" height="12" rx="1" fill="none" stroke="#fff" stroke-width="1" opacity="0.8"/>
+  <line x1="29" y1="26" x2="29" y2="38" stroke="#fff" stroke-width="0.8" opacity="0.6"/>
+  <line x1="35" y1="26" x2="35" y2="38" stroke="#fff" stroke-width="0.8" opacity="0.6"/>
+  <line x1="24" y1="31" x2="40" y2="31" stroke="#fff" stroke-width="0.8" opacity="0.6"/>
+</svg>
