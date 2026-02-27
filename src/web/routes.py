@@ -69,6 +69,7 @@ def register_routes(app):
             lo = cfg.get('logging', {})
             wb = cfg.get('web', {})
             sy = cfg.get('system', {})
+            cl = cfg.get('claude', {})
 
             return jsonify({
                 'status': 'success',
@@ -104,6 +105,11 @@ def register_routes(app):
                 },
                 'system': {
                     'tariff_brl': sy.get('tariff_brl', 0.80),
+                },
+                'claude': {
+                    'has_api_key': bool(cl.get('api_key')),
+                    'model':       cl.get('model', 'claude-haiku-4-5-20251001'),
+                    'max_tokens':  cl.get('max_tokens', 1024),
                 },
             })
         except Exception as e:
@@ -259,6 +265,117 @@ def register_routes(app):
         except Exception as e:
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
+    @app.route('/api/config/claude', methods=['POST'])
+    def api_config_save_claude():
+        """Salva configuração do assistente Claude IA."""
+        try:
+            data = request.get_json()
+            cfg_path = Path(__file__).parent.parent.parent / "config" / "config.yaml"
+            with open(cfg_path, 'r', encoding='utf-8') as f:
+                cfg = yaml.safe_load(f)
+
+            cl = cfg.setdefault('claude', {})
+            if data.get('api_key') and '••' not in data['api_key']:
+                cl['api_key'] = data['api_key'].strip()
+            if data.get('model'):
+                cl['model'] = data['model'].strip()
+            if data.get('max_tokens'):
+                cl['max_tokens'] = int(data['max_tokens'])
+
+            with open(cfg_path, 'w', encoding='utf-8') as f:
+                yaml.dump(cfg, f, allow_unicode=True, default_flow_style=False)
+
+            logger.info("Configuração Claude atualizada")
+            return jsonify({'status': 'success', 'message': 'Configuração Claude salva com sucesso'})
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    @app.route('/api/chat', methods=['POST'])
+    def api_chat():
+        """Processa mensagem de chat usando Claude IA com contexto solar."""
+        try:
+            data = request.get_json()
+            message = (data or {}).get('message', '').strip()
+            if not message:
+                return jsonify({'status': 'error', 'message': 'Mensagem vazia'}), 400
+
+            cfg_path = Path(__file__).parent.parent.parent / "config" / "config.yaml"
+            with open(cfg_path, 'r', encoding='utf-8') as f:
+                cfg = yaml.safe_load(f)
+
+            cl = cfg.get('claude', {})
+            api_key   = cl.get('api_key', '')
+            model     = cl.get('model', 'claude-haiku-4-5-20251001')
+            max_tokens = int(cl.get('max_tokens', 1024))
+
+            if not api_key:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Chave de API Claude não configurada. Acesse Configurações → IA / Chat para inserir sua chave.'
+                }), 400
+
+            # ── Monta contexto solar ──────────────────────────────────────────
+            today = date.today()
+            repository = Repository()
+
+            daily     = repository.get_daily_stats(today)
+            monthly   = repository.get_monthly_stats(today.year, today.month)
+            telemetry = repository.get_latest_ecu_telemetry_for_date(today)
+            alerts    = repository.get_todays_alerts(unresolved_only=True)
+            tariff    = float(cfg.get('system', {}).get('tariff_brl', 1.0))
+
+            gen_today  = round(float(daily.total_generation_kwh), 2)   if daily and daily.total_generation_kwh   else 0.0
+            peak_today = round(float(daily.peak_power_watts), 0)        if daily and daily.peak_power_watts       else 0.0
+            gen_month  = round(float(monthly.total_generation_kwh), 2)  if monthly and monthly.total_generation_kwh else 0.0
+
+            # Extrai última potência da série temporal da ECU
+            power_now = 0.0
+            if telemetry and telemetry.time_series:
+                import json as _json
+                ts = telemetry.time_series if isinstance(telemetry.time_series, dict) else _json.loads(telemetry.time_series)
+                pw = ts.get('power', [])
+                if pw:
+                    power_now = round(float(pw[-1]), 0)
+
+            econ_today = round(gen_today * tariff, 2)
+            econ_month = round(gen_month * tariff, 2)
+            alert_list = ', '.join(a.message for a in alerts) if alerts else 'nenhum'
+
+            system_prompt = f"""Você é um assistente especializado em monitoramento de energia solar fotovoltaica.
+Responda sempre em português do Brasil, de forma clara, objetiva e amigável.
+Baseie suas respostas nos dados reais do sistema quando disponíveis.
+
+=== DADOS ATUAIS DO SISTEMA SOLAR ===
+Data: {today.strftime('%d/%m/%Y')}
+Potência atual: {power_now:.0f} W
+Geração hoje: {gen_today:.2f} kWh
+Pico de potência hoje: {peak_today:.0f} W
+Geração no mês: {gen_month:.2f} kWh
+Tarifa de energia: R$ {tariff:.2f}/kWh
+Economia hoje: R$ {econ_today:.2f}
+Economia no mês: R$ {econ_month:.2f}
+Alertas ativos: {alert_list}
+=====================================
+
+Se não houver dados suficientes (valores zero), informe isso claramente e sugira verificar a coleta de dados."""
+
+            import anthropic as _anthropic
+            client = _anthropic.Anthropic(api_key=api_key)
+            resp = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                system=system_prompt,
+                messages=[{'role': 'user', 'content': message}]
+            )
+            reply = resp.content[0].text if resp.content else 'Sem resposta.'
+            return jsonify({'status': 'success', 'response': reply})
+
+        except Exception as e:
+            err = str(e)
+            if 'authentication' in err.lower() or 'api_key' in err.lower() or '401' in err:
+                return jsonify({'status': 'error', 'message': 'Chave de API inválida. Verifique em Configurações → IA / Chat.'}), 401
+            logger.error(f"Erro no chat IA: {e}")
+            return jsonify({'status': 'error', 'message': f'Erro ao contatar a IA: {err}'}), 500
 
     @app.route('/api/current')
     def api_current():
