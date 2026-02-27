@@ -681,7 +681,7 @@
                         style="font-size:0.78rem">
                     <i class="fas fa-code-branch" aria-hidden="true"></i>
                     <span>Sistema de Monitoramento Solar APSystems</span>
-                    <span class="badge rounded-pill" style="background:#e9ecef;color:#595959;font-weight:500">v1.4</span>
+                    <span class="badge rounded-pill" style="background:#e9ecef;color:#595959;font-weight:500">v1.5</span>
                     <i class="fas fa-chevron-down" aria-hidden="true" style="font-size:0.65rem;opacity:.6"></i>
                 </button>
                 <div class="collapse mt-2" id="changelogCollapse">
@@ -689,10 +689,26 @@
                         <div class="card-body py-3 px-4">
                             <div class="d-flex flex-column gap-3">
 
+                                <!-- v1.5 -->
+                                <div>
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge" style="background:#0d6efd">v1.5</span>
+                                        <span class="text-muted" style="font-size:0.75rem">27/02/2026</span>
+                                    </div>
+                                    <ul class="mb-0 ps-3" style="line-height:1.8">
+                                        <li><strong>Acessibilidade WCAG 2.2 AAA:</strong> painel flutuante colapsável com 15 funcionalidades — tamanho de fonte, espaçamento entre letras/linhas, letras destacadas, contraste, saturação, modo daltônico (Protanopia/Deuteranopia/Tritanopia), esconder imagens, lupa, leitura guiada, máscara de leitura, destaque de links, pausar animações, parar som e estrutura da página</li>
+                                        <li><strong>Seleção de fonte:</strong> Padrão (Segoe UI), Atkinson Hyperlegible (baixa visão) e Lexend (dislexia)</li>
+                                        <li><strong>Persistência:</strong> preferências salvas em <code>localStorage</code> e aplicadas antes do primeiro paint (anti-FOUC)</li>
+                                        <li><strong>Skip link, foco visível 3 px, reduced-motion e cores com contraste ≥ 7:1</strong> em conformidade com WCAG 2.2 AAA</li>
+                                    </ul>
+                                </div>
+
+                                <hr class="my-1">
+
                                 <!-- v1.4 -->
                                 <div>
                                     <div class="d-flex align-items-center gap-2 mb-2">
-                                        <span class="badge" style="background:#0d6efd">v1.4</span>
+                                        <span class="badge" style="background:#6c757d">v1.4</span>
                                         <span class="text-muted" style="font-size:0.75rem">26/02/2026</span>
                                     </div>
                                     <ul class="mb-0 ps-3" style="line-height:1.8">
