@@ -291,6 +291,11 @@ def send_evening_summary():
             from ..analysis.insights import generate_insights
             insights = generate_insights(repository=repository)
             logger.info("Insights gerados para o resumo vespertino")
+            # Atualiza pico com dado da telemetria minutal (mais preciso que stats agregado)
+            profile_peak = (insights or {}).get('profile', {}).get('peak_power_w', 0)
+            if profile_peak and profile_peak > summary_data['peak_power_watts']:
+                summary_data['peak_power_watts'] = profile_peak
+                logger.info(f"Pico atualizado com telemetria minutal: {profile_peak} W")
         except Exception as e:
             logger.warning(f"Erro ao gerar insights para o email: {e}")
 

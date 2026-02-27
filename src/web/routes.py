@@ -1131,6 +1131,17 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             logger.error(f"Erro ao buscar log de emails: {e}")
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
+    @app.route('/api/email/evening-summary', methods=['POST'])
+    def api_email_evening_summary():
+        """Dispara o resumo vespertino manualmente (mesmo job do scheduler)."""
+        try:
+            from ..scheduler.jobs import send_evening_summary
+            send_evening_summary()
+            return jsonify({'status': 'success', 'message': 'Resumo vespertino enviado'})
+        except Exception as e:
+            logger.error(f"Erro ao enviar resumo vespertino: {e}")
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
     @app.route('/api/email/report', methods=['POST'])
     def api_email_report():
         """Envia relatório diário por email."""

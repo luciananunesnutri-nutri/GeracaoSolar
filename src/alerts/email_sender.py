@@ -348,6 +348,134 @@ class EmailSender:
         </table>
       </div>""")
 
+        # ── Inversores em Atenção ──────────────────────────────────────────────
+        attention = insights.get('inverters_attention', [])
+        if attention:
+            att_rows = ''
+            for inv in attention:
+                bar_pct = inv.get('pct_of_best', 0)
+                zc = inv.get('zero_channels', 0)
+                zc_txt = f' · {zc} canal(is) zero' if zc else ''
+                att_rows += f"""<tr>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;font-family:monospace;font-size:12px">{inv['uid']}</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;text-align:right">{inv['today_kwh']:.3f} kWh</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6">
+                <div style="background:#e9ecef;border-radius:4px;height:10px;width:100%;min-width:60px">
+                  <div style="background:#dc3545;width:{bar_pct}%;height:10px;border-radius:4px"></div>
+                </div>
+                <span style="font-size:11px;color:#dc3545;font-weight:600">{bar_pct:.0f}% do melhor{zc_txt}</span>
+              </td>
+            </tr>"""
+            sections.append(f"""
+      <div style="margin-top:20px;border-top:2px solid #dc3545;padding-top:16px">
+        <p style="margin:0 0 6px;font-weight:bold;color:#dc3545">⚠️ Inversores em Atenção (&lt;75% do melhor)</p>
+        <p style="margin:0 0 10px;font-size:12px;color:#6c757d">Estes inversores merecem verificação — desempenho abaixo do esperado.</p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:#f8f9fa">
+              <th style="padding:6px 10px;text-align:left;border-bottom:2px solid #dee2e6">Inversor</th>
+              <th style="padding:6px 10px;text-align:right;border-bottom:2px solid #dee2e6">Hoje</th>
+              <th style="padding:6px 10px;text-align:left;border-bottom:2px solid #dee2e6">Desempenho</th>
+            </tr>
+          </thead>
+          <tbody>{att_rows}</tbody>
+        </table>
+      </div>""")
+
+        # ── Health Score ───────────────────────────────────────────────────────
+        health = insights.get('health', {})
+        if health and health.get('score') is not None:
+            score = health.get('score', 0)
+            grade = health.get('grade', '—')
+            color_map = {'success': '#198754', 'info': '#0dcaf0', 'warning': '#ffc107', 'danger': '#dc3545'}
+            h_color = color_map.get(health.get('color', 'success'), '#198754')
+            comp = health.get('components', {})
+            sections.append(f"""
+      <div style="margin-top:20px;border-top:2px solid {h_color};padding-top:16px">
+        <p style="margin:0 0 10px;font-weight:bold;color:{h_color}">💚 Score de Saúde do Sistema</p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tbody>
+            <tr>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;color:#6c757d;width:40%">Score geral</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;font-weight:700;font-size:18px;color:{h_color}">{score:.0f}/100 — {grade}</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 10px;color:#6c757d">Componentes</td>
+              <td style="padding:5px 10px;font-size:12px">
+                Capacidade: <b>{comp.get('capacity', 0):.0f}/40</b> &nbsp;|&nbsp;
+                Inversores: <b>{comp.get('inverters', 0):.0f}/30</b> &nbsp;|&nbsp;
+                Alertas: <b>{comp.get('alerts', 0):.0f}/20</b> &nbsp;|&nbsp;
+                Assimetria: <b>{comp.get('asymmetry', 0):.0f}/10</b>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>""")
+
+        # ── Projeção do Mês ────────────────────────────────────────────────────
+        proj = insights.get('month_projection', {})
+        if proj and proj.get('projected_kwh', 0) > 0:
+            elapsed   = proj.get('elapsed_days', 0)
+            total_d   = proj.get('days_in_month', 30)
+            progress  = proj.get('progress_pct', 0)
+            daily_avg = proj.get('daily_avg_kwh', 0)
+            bar_w     = min(int(progress), 100)
+            sections.append(f"""
+      <div style="margin-top:20px;border-top:2px solid #6f42c1;padding-top:16px">
+        <p style="margin:0 0 10px;font-weight:bold;color:#6f42c1">📈 Projeção do Mês</p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tbody>
+            <tr>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;color:#6c757d;width:50%">Gerado até hoje</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;font-weight:600">{proj.get('actual_kwh', 0):.2f} kWh</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;color:#6c757d;width:50%">Projeção final do mês</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;font-weight:600;color:#6f42c1">{proj.get('projected_kwh', 0):.2f} kWh</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 10px;color:#6c757d">Progresso</td>
+              <td style="padding:5px 10px">
+                <div style="background:#e9ecef;border-radius:4px;height:10px;width:100%">
+                  <div style="background:#6f42c1;width:{bar_w}%;height:10px;border-radius:4px"></div>
+                </div>
+                <span style="font-size:11px;color:#6c757d">{progress:.0f}% ({elapsed}/{total_d} dias)</span>
+              </td>
+              <td style="padding:5px 10px;color:#6c757d">Média diária</td>
+              <td style="padding:5px 10px;font-weight:600">{daily_avg:.2f} kWh/dia</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>""")
+
+        # ── Comparativo Mensal ─────────────────────────────────────────────────
+        mc = insights.get('monthly_comparison', {})
+        if mc and mc.get('prev_month_kwh', 0) > 0:
+            change = mc.get('change_pct')
+            if change is not None:
+                arrow = '▲' if change >= 0 else '▼'
+                mc_color = '#198754' if change >= 0 else '#dc3545'
+                sign = '+' if change >= 0 else ''
+                chg_html = f'<span style="color:{mc_color};font-weight:700">{arrow} {sign}{change:.1f}%</span>'
+            else:
+                chg_html = '<span style="color:#6c757d">—</span>'
+            sections.append(f"""
+      <div style="margin-top:20px;border-top:2px solid #0d6efd;padding-top:16px">
+        <p style="margin:0 0 10px;font-weight:bold;color:#0d6efd">📅 Comparativo Mensal</p>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tbody>
+            <tr>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;color:#6c757d;width:25%">{mc.get('current_label','Mês atual')}</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;font-weight:600">{mc.get('current_month_kwh',0):.2f} kWh</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;color:#6c757d;width:25%">{mc.get('prev_label','Mês anterior')}</td>
+              <td style="padding:5px 10px;border-bottom:1px solid #dee2e6;font-weight:600">{mc.get('prev_month_kwh',0):.2f} kWh</td>
+            </tr>
+            <tr>
+              <td style="padding:5px 10px;color:#6c757d">Variação</td>
+              <td colspan="3" style="padding:5px 10px">{chg_html}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>""")
+
         return '\n'.join(sections)
 
     def _build_alerts_html_block(self, alerts: list) -> str:
