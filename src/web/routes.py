@@ -68,6 +68,7 @@ def register_routes(app):
             sc = cfg.get('scheduler', {})
             lo = cfg.get('logging', {})
             wb = cfg.get('web', {})
+            sy = cfg.get('system', {})
 
             return jsonify({
                 'status': 'success',
@@ -100,7 +101,10 @@ def register_routes(app):
                 'web': {
                     'port':  wb.get('port', 5000),
                     'debug': wb.get('debug', False),
-                }
+                },
+                'system': {
+                    'tariff_brl': sy.get('tariff_brl', 0.80),
+                },
             })
         except Exception as e:
             return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -240,6 +244,11 @@ def register_routes(app):
                 cfg.setdefault('web', {})['port'] = int(data['web_port'])
             if 'web_debug' in data:
                 cfg.setdefault('web', {})['debug'] = bool(data['web_debug'])
+            if data.get('tariff_brl') is not None:
+                tariff = float(data['tariff_brl'])
+                if tariff <= 0:
+                    return jsonify({'status': 'error', 'message': 'Tarifa deve ser maior que zero'}), 400
+                cfg.setdefault('system', {})['tariff_brl'] = tariff
 
             with open(cfg_path, 'w', encoding='utf-8') as f:
                 yaml.dump(cfg, f, allow_unicode=True, default_flow_style=False)
@@ -282,12 +291,24 @@ def register_routes(app):
 
             import json as _json
             telemetry = repository.get_latest_ecu_telemetry_for_date(today)
+            peak_time = None
             if telemetry and telemetry.time_series:
                 ts = telemetry.time_series if isinstance(telemetry.time_series, dict) else _json.loads(telemetry.time_series)
                 minutely_watts = ts.get('power', [])
-                peak_today = max(minutely_watts) if minutely_watts else peak_hourly
+                if minutely_watts:
+                    peak_today = max(minutely_watts)
+                    peak_idx = minutely_watts.index(peak_today)
+                    times = ts.get('time', [])
+                    if times and peak_idx < len(times):
+                        peak_time = times[peak_idx]
+                else:
+                    peak_today = peak_hourly
             else:
                 peak_today = peak_hourly
+                # Fallback: hora do pico a partir dos registros horários
+                peak_hr = max((d for d in data if d.panel_id == 'hourly'), key=lambda d: d.power_watts, default=None)
+                if peak_hr:
+                    peak_time = peak_hr.timestamp.strftime('%H:%M')
 
             active_hours = [w for w in hourly_watts if w > 0]
             average_today = sum(active_hours) / len(active_hours) if active_hours else 0
@@ -299,6 +320,7 @@ def register_routes(app):
                 'energy_today': (aggregate.energy_kwh_daily or 0) if aggregate else 0,
                 'energy_total': (aggregate.energy_kwh_total or 0) if aggregate else 0,
                 'peak_today': peak_today,
+                'peak_time': peak_time,
                 'average_today': average_today
             }
 
@@ -945,7 +967,16 @@ def register_routes(app):
         """Roda todas as análises e retorna relatório de insights do sistema."""
         try:
             from ..analysis.insights import generate_insights
-            result = generate_insights()
+            target_date = None
+            date_param  = request.args.get('date')
+            if date_param:
+                try:
+                    target_date = date.fromisoformat(date_param)
+                except ValueError:
+                    return jsonify({'status': 'error', 'message': 'Formato de data inválido (use YYYY-MM-DD)'}), 400
+                if target_date > date.today():
+                    return jsonify({'status': 'error', 'message': 'Data futura não permitida'}), 400
+            result = generate_insights(target_date=target_date)
             return jsonify(result)
         except Exception as e:
             logger.error(f"Erro ao gerar insights: {e}")

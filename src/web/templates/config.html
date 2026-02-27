@@ -1,58 +1,135 @@
 {% extends "base.html" %}
 {% block title %}Configurações — Monitoramento Solar{% endblock %}
 
+{% block breadcrumb %}
+<li class="breadcrumb-item active" aria-current="page">Configurações</li>
+{% endblock %}
+
 {% block extra_css %}
 <style>
 @media (max-width: 767.98px) {
     #tab-recipients .row.g-2 > [class*="col-md"] { flex: 0 0 100%; max-width: 100%; }
     .d-flex.gap-2.flex-wrap > .btn { width: 100%; }
 }
-/* ── Job cards ─────────────────────────────────────────────────────────── */
+/* ── Job cards — contraste aprimorado para borda ativa ──────────────────── */
 .job-card {
     transition: border-color .25s ease, opacity .25s ease, box-shadow .25s ease;
     border-color: #dee2e6 !important;
 }
-.job-card.job-active  { border-color: #198754 !important; box-shadow: 0 0 0 1px rgba(25,135,84,.15); }
-.job-card.job-inactive { border-color: #ced4da !important; opacity: .72; }
-.job-card.job-active  .job-card-hdr { background: rgba(25,135,84,.07); }
+/* Verde AAA para borda ativa — 3:1 sobre bg branco (non-text contrast 1.4.11 AA) */
+.job-card.job-active  { border-color: #146c2e !important; box-shadow: 0 0 0 2px rgba(20,108,46,.2); }
+.job-card.job-inactive { border-color: #ced4da !important; opacity: .85; }
+.job-card.job-active  .job-card-hdr { background: rgba(20,108,46,.07); }
 .job-card.job-inactive .job-card-hdr { background: rgba(0,0,0,.03); }
 .cron-preview { min-height: 1.4em; line-height: 1.5; }
+
 /* ── Timeline ──────────────────────────────────────────────────────────── */
 #scheduleTimeline { overflow: hidden; }
+
+/* ── Nav tabs: contraste nos links não-ativos (AAA) ──────────────────────── */
+.nav-tabs .nav-link { color: #212529; }
+.nav-tabs .nav-link.active { color: #0051a8; font-weight: 600; }
+.nav-tabs .nav-link:hover:not(.active) { color: #0051a8; }
 </style>
 {% endblock %}
 
 {% block content %}
+<!-- Cabeçalho da página -->
 <div class="row mb-2">
     <div class="col-12">
-        <h5 class="fw-bold mb-0"><i class="fas fa-cog text-secondary"></i> Configurações</h5>
+        <h1 class="fw-bold mb-0 h5">
+            <i class="fas fa-cog" aria-hidden="true" style="color:var(--muted-text);"></i>
+            Configurações
+        </h1>
         <p class="text-muted small mb-0">Configurações do sistema de monitoramento solar.</p>
     </div>
 </div>
 
-<!-- Abas com scroll horizontal no mobile -->
+<!-- Abas com scroll horizontal no mobile — ARIA tablist (WCAG 4.1.2 A) -->
 <div style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
-<ul class="nav nav-tabs mb-3 flex-nowrap" id="configTabs" role="tablist" style="min-width: max-content;">
-    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-api">
-        <i class="fas fa-plug"></i> <span class="d-none d-sm-inline">API </span>APSystems</a></li>
-    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-email">
-        <i class="fas fa-envelope"></i> Email</a></li>
-    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-recipients">
-        <i class="fas fa-users"></i> <span class="d-none d-sm-inline">Destinatários</span><span class="d-sm-none">Dest.</span></a></li>
-    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-scheduler">
-        <i class="fas fa-clock"></i> <span class="d-none d-sm-inline">Agendamentos</span><span class="d-sm-none">Agenda</span></a></li>
-    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-system">
-        <i class="fas fa-server"></i> Sistema</a></li>
+<ul class="nav nav-tabs mb-3 flex-nowrap"
+    id="configTabs"
+    role="tablist"
+    aria-label="Seções de configuração"
+    style="min-width: max-content;">
+    <li class="nav-item" role="presentation">
+        <a class="nav-link active"
+           data-bs-toggle="tab"
+           href="#tab-api"
+           role="tab"
+           id="tab-api-btn"
+           aria-controls="tab-api"
+           aria-selected="true">
+            <i class="fas fa-plug" aria-hidden="true"></i>
+            <span class="d-none d-sm-inline">API </span>APSystems
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link"
+           data-bs-toggle="tab"
+           href="#tab-email"
+           role="tab"
+           id="tab-email-btn"
+           aria-controls="tab-email"
+           aria-selected="false">
+            <i class="fas fa-envelope" aria-hidden="true"></i>
+            Email
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link"
+           data-bs-toggle="tab"
+           href="#tab-recipients"
+           role="tab"
+           id="tab-recipients-btn"
+           aria-controls="tab-recipients"
+           aria-selected="false">
+            <i class="fas fa-users" aria-hidden="true"></i>
+            <span class="d-none d-sm-inline">Destinatários</span>
+            <span class="d-sm-none">Dest.</span>
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link"
+           data-bs-toggle="tab"
+           href="#tab-scheduler"
+           role="tab"
+           id="tab-scheduler-btn"
+           aria-controls="tab-scheduler"
+           aria-selected="false">
+            <i class="fas fa-clock" aria-hidden="true"></i>
+            <span class="d-none d-sm-inline">Agendamentos</span>
+            <span class="d-sm-none">Agenda</span>
+        </a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link"
+           data-bs-toggle="tab"
+           href="#tab-system"
+           role="tab"
+           id="tab-system-btn"
+           aria-controls="tab-system"
+           aria-selected="false">
+            <i class="fas fa-server" aria-hidden="true"></i>
+            Sistema
+        </a>
+    </li>
 </ul>
 </div>
 
 <div class="tab-content">
 
     <!-- ── API APSystems ────────────────────────────────────────────────── -->
-    <div class="tab-pane fade show active" id="tab-api">
+    <div class="tab-pane fade show active"
+         id="tab-api"
+         role="tabpanel"
+         aria-labelledby="tab-api-btn">
         <div class="card">
             <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="fas fa-plug"></i> Credenciais APSystems OpenAPI</h5>
+                <h2 class="mb-0 h5">
+                    <i class="fas fa-plug" aria-hidden="true"></i>
+                    Credenciais APSystems <abbr title="Application Programming Interface">OpenAPI</abbr>
+                </h2>
             </div>
             <div class="card-body">
                 <p class="text-muted small mb-4">
@@ -60,105 +137,212 @@
                 </p>
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">App ID</label>
-                        <input type="text" class="form-control font-monospace" id="apAppId" placeholder="2c9f934a...">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label fw-semibold">App Secret</label>
-                        <div class="input-group">
-                            <input type="password" class="form-control font-monospace" id="apAppSecret" placeholder="Manter em branco para não alterar">
-                            <button class="btn btn-outline-secondary" type="button" onclick="toggleVisibility('apAppSecret')">
-                                <i class="fas fa-eye"></i>
-                            </button>
+                        <label class="form-label fw-semibold" for="apAppId">
+                            <abbr title="Identificador da aplicação">App ID</abbr>
+                        </label>
+                        <input type="text"
+                               class="form-control font-monospace"
+                               id="apAppId"
+                               placeholder="2c9f934a..."
+                               autocomplete="off"
+                               aria-describedby="apAppIdHelp">
+                        <div class="form-text" id="apAppIdHelp">
+                            Identificador único da sua aplicação no portal APSystems.
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">System ID (SID)</label>
-                        <input type="text" class="form-control font-monospace" id="apSid" placeholder="E19H368434753865">
-                        <div class="form-text">ID do sistema/instalação na plataforma APSystems.</div>
+                        <label class="form-label fw-semibold" for="apAppSecret">
+                            <abbr title="Senha secreta da aplicação">App Secret</abbr>
+                        </label>
+                        <div class="input-group">
+                            <input type="password"
+                                   class="form-control font-monospace"
+                                   id="apAppSecret"
+                                   placeholder="Manter em branco para não alterar"
+                                   autocomplete="current-password"
+                                   aria-describedby="apAppSecretHelp">
+                            <button class="btn btn-outline-secondary"
+                                    type="button"
+                                    onclick="toggleVisibility('apAppSecret')"
+                                    aria-label="Mostrar ou ocultar App Secret"
+                                    id="toggleApSecret">
+                                <i class="fas fa-eye" aria-hidden="true"></i>
+                                <span class="visually-hidden">Mostrar senha</span>
+                            </button>
+                        </div>
+                        <div class="form-text" id="apAppSecretHelp">
+                            Deixe em branco para manter a senha atual.
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold" for="apSid">
+                            <abbr title="System Identifier — identificador do sistema">System ID (SID)</abbr>
+                        </label>
+                        <input type="text"
+                               class="form-control font-monospace"
+                               id="apSid"
+                               placeholder="E19H368434753865"
+                               autocomplete="off"
+                               aria-describedby="apSidHelp">
+                        <div class="form-text" id="apSidHelp">
+                            <abbr title="Identificador">ID</abbr> do sistema/instalação na plataforma APSystems.
+                        </div>
                     </div>
                 </div>
-                <div class="mt-4 d-flex gap-2">
-                    <button class="btn btn-primary" onclick="saveSection('apsystems')">
-                        <i class="fas fa-save"></i> Salvar Credenciais
+                <div class="mt-4 d-flex gap-2 flex-wrap">
+                    <button class="btn btn-primary" onclick="saveSection('apsystems')"
+                            aria-label="Salvar as credenciais da API APSystems">
+                        <i class="fas fa-save" aria-hidden="true"></i>
+                        Salvar Credenciais
                     </button>
-                    <button class="btn btn-outline-secondary" onclick="testApiConnection()">
-                        <i class="fas fa-wifi"></i> Testar Conexão
+                    <button class="btn btn-outline-secondary" onclick="testApiConnection()"
+                            aria-label="Testar a conexão com a API APSystems">
+                        <i class="fas fa-wifi" aria-hidden="true"></i>
+                        Testar Conexão
                     </button>
                 </div>
-                <div id="feedback-api" class="mt-3"></div>
+                <div id="feedback-api"
+                     class="mt-3"
+                     role="status"
+                     aria-live="polite"
+                     aria-atomic="true"></div>
             </div>
         </div>
     </div>
 
     <!-- ── Email SMTP ────────────────────────────────────────────────────── -->
-    <div class="tab-pane fade" id="tab-email">
+    <div class="tab-pane fade"
+         id="tab-email"
+         role="tabpanel"
+         aria-labelledby="tab-email-btn">
         <div class="card">
             <div class="card-header bg-dark text-white">
-                <h5 class="mb-0"><i class="fas fa-envelope"></i> Configuração SMTP — Gmail</h5>
+                <h2 class="mb-0 h5">
+                    <i class="fas fa-envelope" aria-hidden="true"></i>
+                    Configuração <abbr title="Simple Mail Transfer Protocol">SMTP</abbr> — Gmail
+                </h2>
             </div>
             <div class="card-body">
-                <div class="alert alert-info small py-2 mb-4">
-                    <i class="fas fa-info-circle"></i>
+                <div class="alert alert-info small py-2 mb-4" role="note">
+                    <i class="fas fa-info-circle" aria-hidden="true"></i>
                     Use uma <strong>Senha de App</strong> gerada em
-                    <a href="https://myaccount.google.com/apppasswords" target="_blank">myaccount.google.com/apppasswords</a>
+                    <a href="https://myaccount.google.com/apppasswords"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       aria-label="Acessar myaccount.google.com/apppasswords para criar senha de app (abre em nova janela)">myaccount.google.com/apppasswords</a>
                     (requer verificação em duas etapas ativa).
                 </div>
                 <div class="row g-3">
                     <div class="col-md-4">
-                        <label class="form-label fw-semibold">Servidor SMTP</label>
-                        <input type="text" class="form-control" id="smtpHost" value="smtp.gmail.com" readonly>
+                        <label class="form-label fw-semibold" for="smtpHost">
+                            Servidor <abbr title="Simple Mail Transfer Protocol">SMTP</abbr>
+                        </label>
+                        <input type="text" class="form-control" id="smtpHost"
+                               value="smtp.gmail.com" readonly
+                               aria-describedby="smtpHostHelp">
+                        <div class="form-text" id="smtpHostHelp">Configuração fixa para Gmail.</div>
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label fw-semibold">Porta</label>
-                        <input type="number" class="form-control" id="smtpPort" value="587" readonly>
+                        <label class="form-label fw-semibold" for="smtpPort">Porta</label>
+                        <input type="number" class="form-control" id="smtpPort"
+                               value="587" readonly
+                               aria-describedby="smtpPortHelp">
+                        <div class="form-text" id="smtpPortHelp">Porta TLS padrão.</div>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Email remetente (Gmail)</label>
-                        <input type="email" class="form-control" id="cfgSenderEmail" placeholder="seu@gmail.com">
+                        <label class="form-label fw-semibold" for="cfgSenderEmailConfig">
+                            Email remetente (Gmail)
+                        </label>
+                        <input type="email"
+                               class="form-control"
+                               id="cfgSenderEmailConfig"
+                               placeholder="seu@gmail.com"
+                               autocomplete="email">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label fw-semibold">Senha de App Google</label>
+                        <label class="form-label fw-semibold" for="cfgSenderPasswordConfig">
+                            Senha de App Google
+                        </label>
                         <div class="input-group">
-                            <input type="password" class="form-control" id="cfgSenderPassword" placeholder="Manter em branco para não alterar">
-                            <button class="btn btn-outline-secondary" type="button" onclick="toggleVisibility('cfgSenderPassword')">
-                                <i class="fas fa-eye"></i>
+                            <input type="password"
+                                   class="form-control"
+                                   id="cfgSenderPasswordConfig"
+                                   placeholder="Manter em branco para não alterar"
+                                   autocomplete="current-password">
+                            <button class="btn btn-outline-secondary"
+                                    type="button"
+                                    onclick="toggleVisibility('cfgSenderPasswordConfig')"
+                                    aria-label="Mostrar ou ocultar senha de app">
+                                <i class="fas fa-eye" aria-hidden="true"></i>
+                                <span class="visually-hidden">Mostrar senha</span>
                             </button>
                         </div>
                     </div>
                 </div>
                 <div class="mt-4 d-flex gap-2 flex-wrap">
-                    <button class="btn btn-primary" onclick="saveEmailConfig()">
-                        <i class="fas fa-save"></i> Salvar Configuração
+                    <button class="btn btn-primary" onclick="saveEmailConfig()"
+                            aria-label="Salvar configuração de email">
+                        <i class="fas fa-save" aria-hidden="true"></i>
+                        Salvar Configuração
                     </button>
-                    <button class="btn btn-outline-secondary" onclick="sendTestEmail()">
-                        <i class="fas fa-paper-plane"></i> Enviar Email Teste
+                    <button class="btn btn-outline-secondary" onclick="sendTestEmail()"
+                            aria-label="Enviar email de teste para verificar configuração">
+                        <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                        Enviar Email Teste
                     </button>
-                    <button class="btn btn-outline-success" onclick="sendDailyReport()">
-                        <i class="fas fa-chart-bar"></i> Enviar Relatório Agora
+                    <button class="btn btn-outline-success" onclick="sendDailyReport()"
+                            aria-label="Enviar relatório diário de geração solar agora">
+                        <i class="fas fa-chart-bar" aria-hidden="true"></i>
+                        Enviar Relatório Agora
                     </button>
                 </div>
-                <div id="feedback-email" class="mt-3"></div>
+                <div id="feedback-email"
+                     class="mt-3"
+                     role="status"
+                     aria-live="polite"
+                     aria-atomic="true"></div>
 
                 <!-- ── Histórico de Envios ────────────────────────────────── -->
                 <hr class="my-4">
                 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                    <h6 class="text-muted fw-bold mb-0"><i class="fas fa-history"></i> Histórico de Envios</h6>
+                    <h3 class="text-muted fw-bold mb-0 h6">
+                        <i class="fas fa-history" aria-hidden="true"></i>
+                        Histórico de Envios
+                    </h3>
                     <div class="d-flex gap-2 align-items-center flex-wrap">
-                        <div class="btn-group btn-group-sm" id="emailLogFilter">
-                            <button class="btn btn-outline-secondary active" onclick="filterEmailLog('all',this)">Todos</button>
-                            <button class="btn btn-outline-secondary" onclick="filterEmailLog('daily_report',this)">Relatório</button>
-                            <button class="btn btn-outline-secondary" onclick="filterEmailLog('evening_summary',this)">Vespertino</button>
-                            <button class="btn btn-outline-secondary" onclick="filterEmailLog('alert',this)">Alerta</button>
-                            <button class="btn btn-outline-secondary" onclick="filterEmailLog('test',this)">Teste</button>
+                        <div class="btn-group btn-group-sm"
+                             id="emailLogFilter"
+                             role="group"
+                             aria-label="Filtrar histórico por tipo de email">
+                            <button class="btn btn-outline-secondary active"
+                                    onclick="filterEmailLog('all',this)"
+                                    aria-pressed="true">Todos</button>
+                            <button class="btn btn-outline-secondary"
+                                    onclick="filterEmailLog('daily_report',this)"
+                                    aria-pressed="false">Relatório</button>
+                            <button class="btn btn-outline-secondary"
+                                    onclick="filterEmailLog('evening_summary',this)"
+                                    aria-pressed="false">Vespertino</button>
+                            <button class="btn btn-outline-secondary"
+                                    onclick="filterEmailLog('alert',this)"
+                                    aria-pressed="false">Alerta</button>
+                            <button class="btn btn-outline-secondary"
+                                    onclick="filterEmailLog('test',this)"
+                                    aria-pressed="false">Teste</button>
                         </div>
-                        <button class="btn btn-sm btn-outline-primary" onclick="loadEmailLog()" title="Atualizar">
-                            <i class="fas fa-sync-alt"></i>
+                        <button class="btn btn-sm btn-outline-primary"
+                                onclick="loadEmailLog()"
+                                aria-label="Atualizar histórico de emails">
+                            <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                            <span class="visually-hidden">Atualizar</span>
                         </button>
                     </div>
                 </div>
-                <div id="emailLogContainer">
-                    <div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>
+                <div id="emailLogContainer" aria-live="polite" aria-atomic="false">
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+                        Carregando...
+                    </div>
                 </div>
 
                 <hr class="my-4">
@@ -175,10 +359,10 @@
     </div>
 
     <!-- ── Destinatários ─────────────────────────────────────────────────── -->
-    <div class="tab-pane fade" id="tab-recipients">
+    <div class="tab-pane fade" id="tab-recipients" role="tabpanel" aria-labelledby="tab-recipients-btn">
         <div class="card">
             <div class="card-header bg-dark text-white">
-                <h5 class="mb-0"><i class="fas fa-users"></i> Destinatários de Alertas e Relatórios</h5>
+                <h5 class="mb-0"><i class="fas fa-users" aria-hidden="true"></i> Destinatários de Alertas e Relatórios</h5>
             </div>
             <div class="card-body">
                 <!-- Formulário de adição -->
@@ -205,7 +389,7 @@
                     </div>
                     <div class="col-12 col-md-1">
                         <button class="btn btn-success btn-sm w-100" onclick="addRecipient()">
-                            <i class="fas fa-plus"></i> Adicionar
+                            <i class="fas fa-plus" aria-hidden="true"></i> Adicionar
                         </button>
                     </div>
                 </div>
@@ -235,16 +419,16 @@
     </div>
 
     <!-- ── Agendamentos ──────────────────────────────────────────────────── -->
-    <div class="tab-pane fade" id="tab-scheduler">
+    <div class="tab-pane fade" id="tab-scheduler" role="tabpanel" aria-labelledby="tab-scheduler-btn">
         <div class="card">
             <div class="card-header bg-warning text-dark d-flex align-items-center gap-2">
-                <h5 class="mb-0 flex-grow-1"><i class="fas fa-clock"></i> Agendamentos</h5>
+                <h5 class="mb-0 flex-grow-1"><i class="fas fa-clock" aria-hidden="true"></i> Agendamentos</h5>
                 <small class="opacity-75 fw-normal">5 jobs configurados</small>
             </div>
             <div class="card-body">
 
                 <div class="alert alert-info small py-2 mb-4">
-                    <i class="fas fa-sync-alt me-1"></i>
+                    <i class="fas fa-sync-alt me-1" aria-hidden="true"></i>
                     Ao salvar, o scheduler é <strong>reiniciado automaticamente</strong> com a nova configuração.
                     Use a sintaxe <a href="https://crontab.guru" target="_blank">cron</a> padrão (5 campos).
                 </div>
@@ -253,7 +437,7 @@
                 <div class="mb-4">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="fw-semibold text-muted mb-0">
-                            <i class="fas fa-calendar-day me-1"></i> Visão geral — Hoje
+                            <i class="fas fa-calendar-day me-1" aria-hidden="true"></i> Visão geral — Hoje
                         </h6>
                         <small class="text-muted font-monospace" id="tlCurrentTime"></small>
                     </div>
@@ -269,7 +453,7 @@
                     <div class="col-12 col-md-6">
                         <div class="card border-2 h-100 job-card" id="cardCollectionEnabled">
                             <div class="card-header d-flex align-items-center gap-2 py-2 job-card-hdr">
-                                <i class="fas fa-download fa-fw text-primary"></i>
+                                <i class="fas fa-download fa-fw text-primary" aria-hidden="true"></i>
                                 <span class="fw-semibold flex-grow-1">Coleta Agendada</span>
                                 <span class="badge rounded-pill bg-success" id="badgeCollection">ATIVO</span>
                                 <div class="form-check form-switch mb-0 ms-1">
@@ -293,7 +477,7 @@
                     <div class="col-12 col-md-6">
                         <div class="card border-2 h-100 job-card" id="cardStartupCollection">
                             <div class="card-header d-flex align-items-center gap-2 py-2 job-card-hdr">
-                                <i class="fas fa-play-circle fa-fw text-success"></i>
+                                <i class="fas fa-play-circle fa-fw text-success" aria-hidden="true"></i>
                                 <span class="fw-semibold flex-grow-1">Coletar ao Iniciar</span>
                                 <span class="badge rounded-pill bg-secondary" id="badgeStartup">INATIVO</span>
                                 <div class="form-check form-switch mb-0 ms-1">
@@ -305,7 +489,7 @@
                             <div class="card-body">
                                 <p class="text-muted small mb-2">Executa uma coleta imediatamente ao iniciar o scheduler, sem aguardar o próximo horário agendado.</p>
                                 <div class="alert alert-secondary py-1 px-2 small mb-0">
-                                    <i class="fas fa-link me-1 text-muted"></i>
+                                    <i class="fas fa-link me-1 text-muted" aria-hidden="true"></i>
                                     Depende da <strong>Coleta Agendada</strong> estar ativa.
                                 </div>
                             </div>
@@ -316,7 +500,7 @@
                     <div class="col-12 col-md-6">
                         <div class="card border-2 h-100 job-card" id="cardEveningSummaryEnabled">
                             <div class="card-header d-flex align-items-center gap-2 py-2 job-card-hdr">
-                                <i class="fas fa-moon fa-fw text-warning"></i>
+                                <i class="fas fa-moon fa-fw text-warning" aria-hidden="true"></i>
                                 <span class="fw-semibold flex-grow-1">Resumo Vespertino</span>
                                 <span class="badge rounded-pill bg-success" id="badgeEvening">ATIVO</span>
                                 <div class="form-check form-switch mb-0 ms-1">
@@ -340,7 +524,7 @@
                     <div class="col-12 col-md-6">
                         <div class="card border-2 h-100 job-card" id="cardStatisticsEnabled">
                             <div class="card-header d-flex align-items-center gap-2 py-2 job-card-hdr">
-                                <i class="fas fa-chart-bar fa-fw text-info"></i>
+                                <i class="fas fa-chart-bar fa-fw text-info" aria-hidden="true"></i>
                                 <span class="fw-semibold flex-grow-1">Cálculo de Estatísticas</span>
                                 <span class="badge rounded-pill bg-success" id="badgeStats">ATIVO</span>
                                 <div class="form-check form-switch mb-0 ms-1">
@@ -364,7 +548,7 @@
                     <div class="col-12 col-md-6">
                         <div class="card border-2 h-100 job-card" id="cardCleanupEnabled">
                             <div class="card-header d-flex align-items-center gap-2 py-2 job-card-hdr">
-                                <i class="fas fa-broom fa-fw text-danger"></i>
+                                <i class="fas fa-broom fa-fw text-danger" aria-hidden="true"></i>
                                 <span class="fw-semibold flex-grow-1">Limpeza de Dados</span>
                                 <span class="badge rounded-pill bg-success" id="badgeCleanup">ATIVO</span>
                                 <div class="form-check form-switch mb-0 ms-1">
@@ -389,7 +573,7 @@
                 <!-- ── Salvar ─────────────────────────────────────────── -->
                 <div class="d-flex gap-2 flex-wrap align-items-center">
                     <button class="btn btn-warning fw-semibold px-4" onclick="saveAndRestartScheduler()" id="btnSaveScheduler">
-                        <i class="fas fa-save me-1"></i> Salvar e Reiniciar Scheduler
+                        <i class="fas fa-save me-1" aria-hidden="true"></i> Salvar e Reiniciar Scheduler
                     </button>
                 </div>
                 <div id="feedback-scheduler" class="mt-3"></div>
@@ -397,7 +581,7 @@
                 <!-- ── Histórico de Execuções ────────────────────────── -->
                 <hr class="my-4">
                 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                    <h6 class="text-muted fw-bold mb-0"><i class="fas fa-history"></i> Histórico de Execuções</h6>
+                    <h6 class="text-muted fw-bold mb-0"><i class="fas fa-history" aria-hidden="true"></i> Histórico de Execuções</h6>
                     <div class="d-flex gap-2 align-items-center flex-wrap">
                         <div class="btn-group btn-group-sm" id="schedulerLogFilter">
                             <button class="btn btn-outline-secondary active" onclick="filterSchedulerLog('all',this)">Todos</button>
@@ -407,21 +591,21 @@
                             <button class="btn btn-outline-secondary" onclick="filterSchedulerLog('cleanup',this)">Limpeza</button>
                         </div>
                         <button class="btn btn-sm btn-outline-warning" onclick="loadSchedulerLog()" title="Atualizar">
-                            <i class="fas fa-sync-alt"></i>
+                            <i class="fas fa-sync-alt" aria-hidden="true"></i>
                         </button>
                     </div>
                 </div>
                 <div id="schedulerLogContainer">
-                    <div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin"></i> Carregando...</div>
+                    <div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Carregando...</div>
                 </div>
 
                 <!-- ── Referência cron (colapsível) ──────────────────── -->
                 <hr class="my-4">
                 <a class="text-muted small text-decoration-none d-inline-flex align-items-center gap-1"
                    data-bs-toggle="collapse" href="#cronReference" role="button">
-                    <i class="fas fa-question-circle"></i>
+                    <i class="fas fa-question-circle" aria-hidden="true"></i>
                     <span>Referência de sintaxe cron</span>
-                    <i class="fas fa-chevron-down" style="font-size:.7em;"></i>
+                    <i class="fas fa-chevron-down" style="font-size:.7em;" aria-hidden="true"></i>
                 </a>
                 <div class="collapse mt-2" id="cronReference">
                     <div class="table-responsive">
@@ -450,14 +634,14 @@
     </div>
 
     <!-- ── Sistema ───────────────────────────────────────────────────────── -->
-    <div class="tab-pane fade" id="tab-system">
+    <div class="tab-pane fade" id="tab-system" role="tabpanel" aria-labelledby="tab-system-btn">
         <div class="card">
             <div class="card-header bg-secondary text-white">
-                <h5 class="mb-0"><i class="fas fa-server"></i> Configurações do Sistema</h5>
+                <h5 class="mb-0"><i class="fas fa-server" aria-hidden="true"></i> Configurações do Sistema</h5>
             </div>
             <div class="card-body">
                 <div class="alert alert-info small py-2 mb-4">
-                    <i class="fas fa-info-circle"></i>
+                    <i class="fas fa-info-circle" aria-hidden="true"></i>
                     Alterações na porta e no modo debug requerem reinicialização do servidor web.
                 </div>
                 <div class="row g-3">
@@ -481,9 +665,26 @@
                         </select>
                     </div>
                 </div>
+
+                <hr class="my-4">
+                <h6 class="fw-semibold mb-1"><i class="fas fa-bolt text-warning me-1" aria-hidden="true"></i> Tarifa de Energia</h6>
+                <p class="text-muted small mb-3">
+                    Valor utilizado para calcular a economia gerada e os gráficos de economia na página de Insights.
+                </p>
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Tarifa (R$/kWh)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">R$</span>
+                            <input type="number" class="form-control" id="sysTariffBrl"
+                                   placeholder="0.80" min="0.01" max="99.99" step="0.01">
+                        </div>
+                        <div class="form-text">Média Brasil: R$ 0,80/kWh. Verifique sua conta de luz.</div>
+                    </div>
+                </div>
                 <div class="mt-4 d-flex gap-2">
                     <button class="btn btn-secondary" onclick="saveSection('system')">
-                        <i class="fas fa-save"></i> Salvar Configuração
+                        <i class="fas fa-save" aria-hidden="true"></i> Salvar Configuração
                     </button>
                 </div>
                 <div id="feedback-system" class="mt-3"></div>
@@ -515,22 +716,22 @@ function parseCronHuman(cron) {
     if (!cron || typeof cron !== 'string') return '';
     const p = cron.trim().split(/\s+/);
     if (p.length !== 5)
-        return '<span class="text-danger"><i class="fas fa-exclamation-triangle me-1"></i>5 campos esperados</span>';
+        return '<span class="text-danger"><i class="fas fa-exclamation-triangle me-1" aria-hidden="true"></i>5 campos esperados</span>';
     const [min, hour, dom, month, dow] = p;
     const h = parseInt(hour), m = parseInt(min);
     const ok = !isNaN(h) && !isNaN(m) && h >= 0 && h <= 23 && m >= 0 && m <= 59;
     const ts = ok ? `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}` : null;
     if (dom === '*' && month === '*' && dow === '*' && ts)
-        return `<i class="fas fa-calendar-check text-success me-1"></i>Diariamente às <strong>${ts}</strong>`;
+        return `<i class="fas fa-calendar-check text-success me-1" aria-hidden="true"></i>Diariamente às <strong>${ts}</strong>`;
     if (dom === '*' && month === '*' && dow !== '*' && ts) {
         const d = !isNaN(parseInt(dow)) ? DAYS_PT[parseInt(dow) % 7] : dow;
-        return `<i class="fas fa-calendar-week text-info me-1"></i>Toda <strong>${d}</strong> às <strong>${ts}</strong>`;
+        return `<i class="fas fa-calendar-week text-info me-1" aria-hidden="true"></i>Toda <strong>${d}</strong> às <strong>${ts}</strong>`;
     }
     if (min.startsWith('*/') && hour === '*' && dom === '*' && month === '*' && dow === '*')
-        return `<i class="fas fa-redo text-primary me-1"></i>A cada <strong>${min.slice(2)} minutos</strong>`;
+        return `<i class="fas fa-redo text-primary me-1" aria-hidden="true"></i>A cada <strong>${min.slice(2)} minutos</strong>`;
     if (min === '0' && hour.startsWith('*/') && dom === '*' && month === '*' && dow === '*')
-        return `<i class="fas fa-redo text-primary me-1"></i>A cada <strong>${hour.slice(2)} horas</strong>`;
-    return `<i class="fas fa-clock text-muted me-1"></i><code>${cron}</code>`;
+        return `<i class="fas fa-redo text-primary me-1" aria-hidden="true"></i>A cada <strong>${hour.slice(2)} horas</strong>`;
+    return `<i class="fas fa-clock text-muted me-1" aria-hidden="true"></i><code>${cron}</code>`;
 }
 
 function getNextRun(cron) {
@@ -736,15 +937,15 @@ function buildCronWidget(jobId) {
   <div class="btn-group btn-group-sm w-100" role="group">
     <input type="radio" class="btn-check" name="freq_${jobId}" id="freqD_${jobId}" autocomplete="off"${s.freq==='daily'?' checked':''}>
     <label class="btn btn-outline-primary" for="freqD_${jobId}" onclick="onFreqChange('${jobId}','daily')">
-      <i class="fas fa-sun me-1"></i>Diário
+      <i class="fas fa-sun me-1" aria-hidden="true"></i>Diário
     </label>
     <input type="radio" class="btn-check" name="freq_${jobId}" id="freqW_${jobId}" autocomplete="off"${s.freq==='weekly'?' checked':''}>
     <label class="btn btn-outline-primary" for="freqW_${jobId}" onclick="onFreqChange('${jobId}','weekly')">
-      <i class="fas fa-calendar-week me-1"></i>Semanal
+      <i class="fas fa-calendar-week me-1" aria-hidden="true"></i>Semanal
     </label>
     <input type="radio" class="btn-check" name="freq_${jobId}" id="freqC_${jobId}" autocomplete="off"${s.freq==='custom'?' checked':''}>
     <label class="btn btn-outline-secondary" for="freqC_${jobId}" onclick="onFreqChange('${jobId}','custom')">
-      <i class="fas fa-terminal me-1"></i>Cron
+      <i class="fas fa-terminal me-1" aria-hidden="true"></i>Cron
     </label>
   </div>
 </div>
@@ -754,7 +955,7 @@ function buildCronWidget(jobId) {
 </div>
 <div id="timeRow_${jobId}" class="d-flex align-items-center gap-2 mb-1"
      style="display:${!isC ? 'flex' : 'none'};">
-  <span class="small text-muted"><i class="fas fa-clock me-1"></i>Horário</span>
+  <span class="small text-muted"><i class="fas fa-clock me-1" aria-hidden="true"></i>Horário</span>
   <select class="form-select form-select-sm font-monospace" id="hourSel_${jobId}" style="width:72px"
           onchange="onTimeChange('${jobId}')">${hOpts}</select>
   <span class="fw-bold text-secondary">:</span>
@@ -853,7 +1054,7 @@ async function loadAll() {
         document.getElementById('apSid').value     = data.apsystems.sid   || '';
 
         // Email
-        document.getElementById('cfgSenderEmail').value = data.email.sender_email || '';
+        document.getElementById('cfgSenderEmailConfig').value = data.email.sender_email || '';
 
         // Scheduler — flags
         document.getElementById('scCollectionEnabled').checked     = data.scheduler.collection_enabled     !== false;
@@ -877,9 +1078,10 @@ async function loadAll() {
         initWidgets();
 
         // Sistema
-        document.getElementById('sysPort').value  = data.web.port  || 5000;
-        document.getElementById('sysDebug').checked = data.web.debug || false;
+        document.getElementById('sysPort').value     = data.web.port    || 5000;
+        document.getElementById('sysDebug').checked  = data.web.debug   || false;
         document.getElementById('sysLogLevel').value = data.logging.level || 'INFO';
+        document.getElementById('sysTariffBrl').value = data.system?.tariff_brl ?? 0.80;
     } catch (e) { console.error('loadAll:', e); }
 }
 
@@ -910,21 +1112,22 @@ async function saveSection(section) {
     } else if (section === 'system') {
         url  = '/api/config/system';
         body = {
-            web_port:  document.getElementById('sysPort').value,
-            web_debug: document.getElementById('sysDebug').checked,
-            log_level: document.getElementById('sysLogLevel').value
+            web_port:   document.getElementById('sysPort').value,
+            web_debug:  document.getElementById('sysDebug').checked,
+            log_level:  document.getElementById('sysLogLevel').value,
+            tariff_brl: parseFloat(document.getElementById('sysTariffBrl').value) || 0.80,
         };
     }
 
     try {
-        feedback(section, '<i class="fas fa-spinner fa-spin"></i> Salvando...', 'info');
+        feedback(section, '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Salvando...', 'info');
         const res  = await fetch(url, {
             method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(body)
         });
         const data = await res.json();
         feedback(section,
-            `<i class="fas fa-${data.status === 'success' ? 'check' : 'times'}"></i> ${data.message}`,
+            `<i class="fas fa-${data.status === 'success' ? 'check' : 'times'}" aria-hidden="true"></i> ${data.message}`,
             data.status === 'success' ? 'success' : 'danger');
     } catch (e) { feedback(section, 'Erro ao salvar.', 'danger'); }
 }
@@ -935,7 +1138,7 @@ async function saveAndRestartScheduler() {
     btn.disabled = true;
     try {
         // 1. Salvar configuração
-        feedback('scheduler', '<i class="fas fa-spinner fa-spin"></i> Salvando configuração...', 'info');
+        feedback('scheduler', '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Salvando configuração...', 'info');
         const url  = '/api/config/scheduler';
         const body = {
             collection_enabled:      document.getElementById('scCollectionEnabled').checked,
@@ -954,21 +1157,21 @@ async function saveAndRestartScheduler() {
         });
         const saveData = await saveRes.json();
         if (saveData.status !== 'success') {
-            feedback('scheduler', `<i class="fas fa-times"></i> Erro ao salvar: ${saveData.message}`, 'danger');
+            feedback('scheduler', `<i class="fas fa-times" aria-hidden="true"></i> Erro ao salvar: ${saveData.message}`, 'danger');
             return;
         }
 
         // 2. Reiniciar scheduler
-        feedback('scheduler', '<i class="fas fa-spinner fa-spin"></i> Reiniciando scheduler...', 'info');
+        feedback('scheduler', '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Reiniciando scheduler...', 'info');
         const restartRes  = await fetch('/api/scheduler/restart', { method: 'POST' });
         const restartData = await restartRes.json();
         if (restartData.status === 'success') {
-            feedback('scheduler', '<i class="fas fa-check"></i> Configuração salva e scheduler reiniciado com sucesso.', 'success');
+            feedback('scheduler', '<i class="fas fa-check" aria-hidden="true"></i> Configuração salva e scheduler reiniciado com sucesso.', 'success');
         } else {
-            feedback('scheduler', `<i class="fas fa-exclamation-triangle"></i> Configuração salva, mas reinicialização falhou: ${restartData.message}`, 'warning');
+            feedback('scheduler', `<i class="fas fa-exclamation-triangle" aria-hidden="true"></i> Configuração salva, mas reinicialização falhou: ${restartData.message}`, 'warning');
         }
     } catch (e) {
-        feedback('scheduler', '<i class="fas fa-times"></i> Erro ao salvar/reiniciar.', 'danger');
+        feedback('scheduler', '<i class="fas fa-times" aria-hidden="true"></i> Erro ao salvar/reiniciar.', 'danger');
     } finally {
         btn.disabled = false;
     }
@@ -976,14 +1179,14 @@ async function saveAndRestartScheduler() {
 
 // ── Testar conexão API ─────────────────────────────────────────────────────
 async function testApiConnection() {
-    feedback('api', '<i class="fas fa-spinner fa-spin"></i> Testando conexão...', 'info');
+    feedback('api', '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Testando conexão...', 'info');
     try {
         const res  = await fetch('/api/current');
         const data = await res.json();
         if (data.status === 'success' || data.energy_today !== undefined) {
-            feedback('api', '<i class="fas fa-check"></i> Conexão com APSystems OK — API respondendo normalmente.', 'success');
+            feedback('api', '<i class="fas fa-check" aria-hidden="true"></i> Conexão com APSystems OK — API respondendo normalmente.', 'success');
         } else {
-            feedback('api', `<i class="fas fa-times"></i> Sem dados: ${data.message || 'Verifique as credenciais.'}`, 'warning');
+            feedback('api', `<i class="fas fa-times" aria-hidden="true"></i> Sem dados: ${data.message || 'Verifique as credenciais.'}`, 'warning');
         }
     } catch (e) { feedback('api', 'Erro ao testar conexão.', 'danger'); }
 }
@@ -991,11 +1194,11 @@ async function testApiConnection() {
 // ── Email ──────────────────────────────────────────────────────────────────
 async function saveEmailConfig() {
     const body = {
-        sender_email:    document.getElementById('cfgSenderEmail').value.trim(),
-        sender_password: document.getElementById('cfgSenderPassword').value.trim(),
+        sender_email:    document.getElementById('cfgSenderEmailConfig').value.trim(),
+        sender_password: document.getElementById('cfgSenderPasswordConfig').value.trim(),
     };
     if (!body.sender_email) return feedback('email', 'Informe o email remetente.', 'warning');
-    feedback('email', '<i class="fas fa-spinner fa-spin"></i> Salvando...', 'info');
+    feedback('email', '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Salvando...', 'info');
     try {
         const res  = await fetch('/api/email/config', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1003,30 +1206,30 @@ async function saveEmailConfig() {
         });
         const data = await res.json();
         feedback('email',
-            `<i class="fas fa-${data.status === 'success' ? 'check' : 'times'}"></i> ${data.message}`,
+            `<i class="fas fa-${data.status === 'success' ? 'check' : 'times'}" aria-hidden="true"></i> ${data.message}`,
             data.status === 'success' ? 'success' : 'danger');
-        if (data.status === 'success') document.getElementById('cfgSenderPassword').value = '';
+        if (data.status === 'success') document.getElementById('cfgSenderPasswordConfig').value = '';
     } catch (e) { feedback('email', 'Erro ao salvar.', 'danger'); }
 }
 
 async function sendTestEmail() {
-    feedback('email', '<i class="fas fa-spinner fa-spin"></i> Enviando email de teste...', 'info');
+    feedback('email', '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Enviando email de teste...', 'info');
     try {
         const res  = await fetch('/api/email/test', { method: 'POST' });
         const data = await res.json();
         feedback('email',
-            `<i class="fas fa-${data.status === 'success' ? 'check' : 'times'}"></i> ${data.message}`,
+            `<i class="fas fa-${data.status === 'success' ? 'check' : 'times'}" aria-hidden="true"></i> ${data.message}`,
             data.status === 'success' ? 'success' : 'danger');
     } catch (e) { feedback('email', 'Erro ao enviar.', 'danger'); }
 }
 
 async function sendDailyReport() {
-    feedback('email', '<i class="fas fa-spinner fa-spin"></i> Gerando e enviando relatório...', 'info');
+    feedback('email', '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Gerando e enviando relatório...', 'info');
     try {
         const res  = await fetch('/api/email/report', { method: 'POST' });
         const data = await res.json();
         feedback('email',
-            `<i class="fas fa-${data.status === 'success' ? 'check' : 'times'}"></i> ${data.message}`,
+            `<i class="fas fa-${data.status === 'success' ? 'check' : 'times'}" aria-hidden="true"></i> ${data.message}`,
             data.status === 'success' ? 'success' : 'danger');
     } catch (e) { feedback('email', 'Erro ao enviar relatório.', 'danger'); }
 }
@@ -1059,7 +1262,7 @@ function renderEmailLog() {
         : _emailLogs.filter(l => l.email_type === _emailLogFilter);
 
     if (!logs.length) {
-        container.innerHTML = '<p class="text-muted text-center py-3"><i class="fas fa-inbox me-1"></i>Nenhum envio registrado.</p>';
+        container.innerHTML = '<p class="text-muted text-center py-3"><i class="fas fa-inbox me-1" aria-hidden="true"></i>Nenhum envio registrado.</p>';
         return;
     }
 
@@ -1071,8 +1274,8 @@ function renderEmailLog() {
     const rows = logs.map(l => {
         const color = TYPE_COLORS[l.email_type] || 'secondary';
         const statusBadge = l.success
-            ? '<span class="badge bg-success"><i class="fas fa-check"></i> OK</span>'
-            : `<span class="badge bg-danger" title="${l.error_message || ''}"><i class="fas fa-times"></i> Erro</span>`;
+            ? '<span class="badge bg-success"><i class="fas fa-check" aria-hidden="true"></i> OK</span>'
+            : `<span class="badge bg-danger" title="${l.error_message || ''}"><i class="fas fa-times" aria-hidden="true"></i> Erro</span>`;
         const recipients = (l.recipients || []).join(', ') || '—';
         return `<tr>
             <td class="text-nowrap small">${l.sent_at}</td>
@@ -1142,7 +1345,7 @@ async function loadRecipients() {
             <td class="text-center">
                 <button class="btn btn-outline-danger btn-sm py-0 px-2"
                         onclick="deleteRecipient(${r.id}, '${r.email}')">
-                    <i class="fas fa-trash"></i>
+                    <i class="fas fa-trash" aria-hidden="true"></i>
                 </button>
             </td>
         </tr>`).join('');
@@ -1164,10 +1367,10 @@ async function addRecipient() {
         if (data.status === 'success') {
             document.getElementById('newRecipientName').value  = '';
             document.getElementById('newRecipientEmail').value = '';
-            _recipientFeedback(`<i class="fas fa-check"></i> ${name} &lt;${email}&gt; cadastrado.`, 'success');
+            _recipientFeedback(`<i class="fas fa-check" aria-hidden="true"></i> ${name} &lt;${email}&gt; cadastrado.`, 'success');
             loadRecipients();
         } else {
-            _recipientFeedback(`<i class="fas fa-times"></i> ${data.message}`, 'danger');
+            _recipientFeedback(`<i class="fas fa-times" aria-hidden="true"></i> ${data.message}`, 'danger');
         }
     } catch (e) { _recipientFeedback('Erro ao cadastrar.', 'danger'); }
 }
@@ -1223,7 +1426,7 @@ function renderSchedulerLog() {
         : _schedulerLogs.filter(l => l.job_name === _schedulerLogFilter);
 
     if (!logs.length) {
-        container.innerHTML = '<p class="text-muted text-center py-3"><i class="fas fa-inbox me-1"></i>Nenhuma execução registrada.</p>';
+        container.innerHTML = '<p class="text-muted text-center py-3"><i class="fas fa-inbox me-1" aria-hidden="true"></i>Nenhuma execução registrada.</p>';
         return;
     }
 
@@ -1235,8 +1438,8 @@ function renderSchedulerLog() {
     const rows = logs.map(l => {
         const color = JOB_COLORS[l.job_name] || 'secondary';
         const statusBadge = l.success
-            ? '<span class="badge bg-success"><i class="fas fa-check"></i> OK</span>'
-            : `<span class="badge bg-danger" title="${l.message || ''}"><i class="fas fa-times"></i> Erro</span>`;
+            ? '<span class="badge bg-success"><i class="fas fa-check" aria-hidden="true"></i> OK</span>'
+            : `<span class="badge bg-danger" title="${l.message || ''}"><i class="fas fa-times" aria-hidden="true"></i> Erro</span>`;
         const duration = l.duration_seconds != null ? `${l.duration_seconds}s` : '—';
         const msg = l.success ? '' : (l.message ? `<br><small class="text-danger">${l.message}</small>` : '');
         return `<tr>

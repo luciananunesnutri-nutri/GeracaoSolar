@@ -2,120 +2,517 @@
 
 {% block title %}Insights — Monitoramento Solar{% endblock %}
 
+{% block breadcrumb %}
+<li class="breadcrumb-item active" aria-current="page">Insights</li>
+{% endblock %}
+
 {% block extra_css %}
 <style>
+  /* ── Base ── */
   .insight-section { margin-bottom: 2rem; }
   .insight-section .section-title {
     font-size: 1.1rem; font-weight: 600; color: #495057;
     border-left: 4px solid var(--primary-color);
     padding-left: 0.75rem; margin-bottom: 1rem;
   }
-  .kpi-card { border-radius: 12px; padding: 1.1rem .75rem; text-align: center; border: none; }
-  .kpi-value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
-  .kpi-label { font-size: 0.72rem; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: .8px; margin-top: 4px; }
-  .kpi-sub   { font-size: 0.8rem; color: rgba(255,255,255,0.9); margin-top: 2px; }
-  .kpi-green  { background: linear-gradient(135deg,#28a745,#20c997); color:#fff; }
-  .kpi-blue   { background: linear-gradient(135deg,#007bff,#17a2b8); color:#fff; }
-  .kpi-teal   { background: linear-gradient(135deg,#17a2b8,#6f42c1); color:#fff; }
-  .kpi-orange { background: linear-gradient(135deg,#fd7e14,#dc3545); color:#fff; }
-  .kpi-grey   { background: linear-gradient(135deg,#6c757d,#495057); color:#fff; }
-  .kpi-leaf   { background: linear-gradient(135deg,#155724,#28a745); color:#fff; }
 
-  .inv-table th { font-size: 0.72rem; color: #6c757d; text-transform: uppercase; letter-spacing:.5px; white-space: nowrap; }
+  /* ── KPI cards ─────────────────────────────────────────────────────────────
+     Fundo sólido escuro para garantir contraste 4.5:1+ (texto grande, AAA)
+     Texto branco sobre fundos escuros com luminância ≤ 0.2 = contraste ≥ 4.5:1
+  ── */
+  .kpi-card { border-radius: 12px; padding: 1.1rem .75rem; text-align: center; border: none; }
+  .kpi-value { font-size: 1.6rem; font-weight: 700; line-height: 1.1; color: #fff; }
+  /* kpi-label: 0.875rem bold — ainda precisa 7:1; usamos white sobre fundos escuros */
+  .kpi-label {
+    font-size: 0.875rem; font-weight: 600;
+    color: rgba(255,255,255,0.95); /* máximo de contraste disponível com fundo escuro */
+    text-transform: uppercase; letter-spacing: .8px; margin-top: 4px;
+  }
+  .kpi-sub   { font-size: 0.875rem; color: rgba(255,255,255,0.95); margin-top: 2px; }
+  /* Gradientes com ponto de partida mais escuro para garantir maior contraste */
+  .kpi-green  { background: linear-gradient(135deg, #0e5224, #146c2e); color:#fff; }
+  .kpi-blue   { background: linear-gradient(135deg, #003d80, #0051a8); color:#fff; }
+  .kpi-teal   { background: linear-gradient(135deg, #073e4c, #0c5460); color:#fff; }
+  .kpi-orange { background: linear-gradient(135deg, #7c2200, #a83200); color:#fff; }
+  .kpi-grey   { background: linear-gradient(135deg, #1a1a1a, #3d3d3d); color:#fff; }
+  .kpi-leaf   { background: linear-gradient(135deg, #071f0e, #0e5224); color:#fff; }
+
+  /* ── Inverter table — contraste AAA ─────────────────────────────────────── */
+  .inv-table th { font-size: 0.82rem; color: #212529; text-transform: uppercase; letter-spacing:.5px; white-space: nowrap; font-weight: 600; }
   .inv-table td { vertical-align: middle; font-size: 0.82rem; white-space: nowrap; }
-  .badge-series-804 { background: #0d6efd; color:#fff; }
-  .badge-series-802 { background: #6f42c1; color:#fff; }
-  .rank-1 { font-weight: 700; color: #28a745; }
-  .rank-last { color: #dc3545; }
+  /* Badges série: azul e roxo com texto branco — verificar contraste */
+  .badge-series-804 { background: #003d80; color:#fff; }  /* 9.6:1 */
+  .badge-series-802 { background: #4a2885; color:#fff; }  /* 8.5:1 */
+  /* rank usa cor + negrito como indicadores (não só cor) */
+  .rank-1    { font-weight: 700; color: #146c2e; }  /* verde AAA */
+  .rank-last { font-weight: 600; color: #b02a37; }  /* vermelho AAA */
   .bar-bg { background:#e9ecef; border-radius:4px; height:8px; }
   .bar-fill { border-radius:4px; height:8px; transition: width .5s; }
 
+  /* ── Profile grid — contraste AAA ──────────────────────────────────────── */
   .profile-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: .75rem; }
-  .profile-item { background:#f8f9fa; border-radius:8px; padding:.75rem 1rem; text-align:center; }
-  .profile-item .pval { font-size:1.3rem; font-weight:700; color:#212529; }
-  .profile-item .plbl { font-size:0.72rem; color:#6c757d; text-transform:uppercase; letter-spacing:.6px; }
+  .profile-item { background:#f0f0f0; border-radius:8px; padding:.75rem 1rem; text-align:center; border: 1px solid #d0d0d0; }
+  .profile-item .pval { font-size:1.3rem; font-weight:700; color:#212529; }  /* 16:1 */
+  .profile-item .plbl { font-size:0.82rem; color:#595959; text-transform:uppercase; letter-spacing:.6px; font-weight:600; }  /* 7:1 */
 
+  /* ── Alerts ── */
   .alert-row-critical { border-left: 4px solid #dc3545; }
   .alert-row-warning  { border-left: 4px solid #ffc107; }
   .alert-row-info     { border-left: 4px solid #17a2b8; }
 
+  /* ── Spinner / content ── */
   #insightsSpinner { display: flex; justify-content:center; align-items:center; min-height:200px; }
   #insightsContent { display: none; }
 
-  .change-up   { color: #28a745; font-weight:600; }
-  .change-down { color: #dc3545; font-weight:600; }
-  .change-flat { color: #6c757d; }
+  .change-up   { color: #146c2e; font-weight: 600; }  /* verde AAA 7.1:1 */
+  .change-down { color: #b02a37; font-weight: 600; }  /* vermelho AAA 7.1:1 */
+  .change-flat { color: #595959; font-weight: 600; }  /* cinza AAA 7:1 */
 
-  .channel-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:3px; }
-  .dot-ok   { background:#28a745; }
-  .dot-zero { background:#dc3545; }
-  .dot-na   { background:#adb5bd; }
+  /* ── Channel dots — formas distintas além de cor (WCAG 1.4.1 A) ──────────── */
+  .channel-dot {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 14px; height: 14px; border-radius: 50%; margin-right: 3px;
+    font-size: 8px; font-weight: 700; color: #fff;
+  }
+  /* Verde ok: ✓ */
+  .dot-ok   { background: #146c2e; }
+  /* Vermelho zero: ✕ */
+  .dot-zero { background: #b02a37; }
+  /* Cinza N/A: — */
+  .dot-na   { background: #595959; }
+
+  /* ── Health ring ── */
+  .health-ring-wrap { position:relative; width:140px; height:140px; margin:0 auto; }
+  .health-score-label {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    text-align:center; pointer-events:none;
+  }
+  .health-score-label .hs-val { font-size:1.8rem; font-weight:700; line-height:1; }
+  .health-score-label .hs-grade { font-size:0.72rem; text-transform:uppercase; letter-spacing:.6px; }
+
+  /* ── Historical banner ── */
+  #historicalBanner { display:none; }
+
+  /* ── Attention table ── */
+  .att-table th { font-size:0.72rem; color:#6c757d; text-transform:uppercase; letter-spacing:.4px; }
+  .att-table td { font-size:0.82rem; vertical-align:middle; }
+
+  /* ── Hint icon — acessível por teclado e com tooltip visível (3.3.5 AAA) ── */
+  .hint-icon {
+    font-size: 0.78rem; color: #595959; cursor: help;
+    margin-left: 5px; vertical-align: middle;
+    opacity: 0.9; transition: opacity .15s, color .15s;
+    border-radius: 50%;
+  }
+  .hint-icon:hover, .hint-icon:focus-visible {
+    opacity: 1; color: #212529;
+    outline: 2px solid #0051a8;
+    outline-offset: 2px;
+  }
+  .kpi-label .hint-icon { color: rgba(255,255,255,0.9); font-size: 0.7rem; }
+  .kpi-label .hint-icon:hover, .kpi-label .hint-icon:focus-visible { color: #fff; opacity: 1; }
+  .plbl .hint-icon { color: #595959; font-size: 0.65rem; }
+
+  /* ── Contraste aprimorado para section-title (AAA) ─────────────────────── */
+  .insight-section .section-title {
+    color: #212529 !important;  /* 16:1 sobre branco — AAA */
+  }
+
+  /* ── Indicadores de rank sem depender só de cor ─────────────────────────── */
+  .rank-1    { font-weight: 700; color: var(--primary-color, #146c2e); }
+  .rank-last { color: #b02a37; }
+
+  /* ── Alert rows: indicador de severidade adicional ao borda lateral ──────── */
+  .alert-row-critical { border-left: 4px solid #b02a37; }
+  .alert-row-warning  { border-left: 4px solid #856404; }
+  .alert-row-info     { border-left: 4px solid #0c5460; }
+
+  /* ── Contraste change indicators ────────────────────────────────────────── */
+  .change-up   { color: #146c2e; font-weight: 600; }
+  .change-down { color: #b02a37; font-weight: 600; }
+  .change-flat { color: #595959; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex align-items-start justify-content-between gap-2 mb-3">
+
+<!-- ── Cabeçalho da página + seletor de data ──────────────────────────────── -->
+<div class="d-flex align-items-start justify-content-between gap-2 mb-3 flex-wrap">
   <div>
-    <h5 class="fw-semibold mb-0"><i class="fas fa-lightbulb text-warning me-1"></i>Insights</h5>
+    <h1 class="fw-semibold mb-0 h5">
+      <i class="fas fa-lightbulb me-1" aria-hidden="true" style="color:var(--warning-color);"></i>
+      Insights
+    </h1>
     <p class="text-muted small mb-0 d-none d-sm-block">Análise completa do sistema de monitoramento solar</p>
-    <span class="text-muted" style="font-size:0.72rem" id="generatedAt"></span>
+    <span class="text-muted" style="font-size:0.72rem" id="generatedAt" aria-live="polite"></span>
   </div>
-  <button class="btn btn-outline-primary btn-sm flex-shrink-0" onclick="loadInsights()">
-    <i class="fas fa-sync-alt"></i> <span class="d-none d-sm-inline">Atualizar</span>
-  </button>
+  <div class="d-flex align-items-center gap-2 flex-shrink-0">
+    <!-- Label visível para acessibilidade (3.3.2 A) -->
+    <label for="datePicker" class="visually-hidden">Data para análise dos insights</label>
+    <input type="date"
+           id="datePicker"
+           class="form-control form-control-sm"
+           style="width:160px"
+           aria-label="Data para análise dos insights">
+    <button class="btn btn-outline-primary btn-sm"
+            onclick="loadInsights()"
+            aria-label="Atualizar insights para a data selecionada">
+      <i class="fas fa-sync-alt" aria-hidden="true"></i>
+      <span class="d-none d-sm-inline">Atualizar</span>
+    </button>
+  </div>
 </div>
 
-<!-- Loading -->
-<div id="insightsSpinner">
+<!-- ── Banner de dados históricos ────────────────────────────────────────── -->
+<div id="historicalBanner"
+     class="alert alert-warning d-flex align-items-center gap-2 mb-3 py-2"
+     role="status"
+     aria-live="polite">
+  <i class="fas fa-history" aria-hidden="true"></i>
+  <span>
+    Visualizando dados históricos de <strong id="bannerDate"></strong>.
+    <a href="#"
+       onclick="loadInsights();return false"
+       class="alert-link ms-1"
+       aria-label="Voltar para os dados de hoje">Voltar para hoje</a>
+  </span>
+</div>
+
+<!-- ── Spinner de carregamento ───────────────────────────────────────────── -->
+<div id="insightsSpinner" role="status" aria-live="polite" aria-label="Gerando análises, aguarde">
   <div class="text-center text-muted">
-    <div class="spinner-border text-success mb-3" style="width:2.5rem;height:2.5rem"></div>
+    <div class="spinner-border mb-3" style="width:2.5rem;height:2.5rem;color:var(--primary-color);" aria-hidden="true"></div>
     <div>Gerando análises...</div>
   </div>
 </div>
 
-<!-- Content (hidden until loaded) -->
+<!-- ── Content (hidden until loaded) ─────────────────────────────────────── -->
 <div id="insightsContent">
 
-  <!-- ── Seção 1: Resumo Financeiro & Ambiental ─────────────────────────── -->
-  <div class="insight-section">
-    <div class="section-title"><i class="fas fa-coins me-1"></i> Impacto Financeiro &amp; Ambiental</div>
-    <div class="row g-3" id="kpiRow1"></div>
-  </div>
-
-  <!-- ── Seção 2: Geração Hoje ──────────────────────────────────────────── -->
-  <div class="insight-section">
-    <div class="section-title"><i class="fas fa-calendar-day me-1"></i> Geração Hoje</div>
-    <div class="row g-3" id="kpiRow2"></div>
-  </div>
-
-  <!-- ── Seção 3: Perfil do Dia ─────────────────────────────────────────── -->
-  <div class="insight-section" id="profileSection">
-    <div class="section-title"><i class="fas fa-chart-area me-1"></i> Perfil de Geração do Dia</div>
+  <!-- ── A: Score de Saúde ─────────────────────────────────────────────── -->
+  <section class="insight-section" aria-labelledby="health-section-heading">
+    <h2 id="health-section-heading" class="section-title">
+      <i class="fas fa-heartbeat me-1" aria-hidden="true"></i>
+      Score de Saúde do Sistema
+      <button type="button"
+              class="hint-icon btn btn-link p-0 border-0"
+              tabindex="0"
+              aria-label="Informação sobre o score de saúde: índice composto de 0 a 100"
+              data-bs-toggle="tooltip"
+              data-bs-placement="right"
+              data-bs-title="Índice composto de 0 a 100 calculado a partir de 4 componentes: fator de capacidade (40 pts), inversores com boa performance (30 pts), ausência de alertas ativos (20 pts) e baixa assimetria entre canais (10 pts).">
+        <i class="fas fa-info-circle" aria-hidden="true"></i>
+      </button>
+    </h2>
     <div class="card">
       <div class="card-body">
-        <div class="profile-grid" id="profileGrid"></div>
+        <div class="row align-items-center g-3">
+          <div class="col-auto text-center">
+            <div class="health-ring-wrap" role="img" aria-labelledby="healthScoreAriaLabel">
+              <canvas id="healthRingChart" width="140" height="140" aria-hidden="true"></canvas>
+              <div class="health-score-label">
+                <div class="hs-val" id="healthScoreVal" aria-live="polite">—</div>
+                <div class="hs-grade text-muted" id="healthGradeVal" aria-live="polite">—</div>
+              </div>
+            </div>
+            <span id="healthScoreAriaLabel" class="visually-hidden" aria-live="polite">Score de saúde: carregando</span>
+          </div>
+          <div class="col">
+            <div class="row g-2" id="healthComponents" aria-live="polite"></div>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
+  </section>
 
-  <!-- ── Seção 4: Performance por Inversor ─────────────────────────────── -->
-  <div class="insight-section">
-    <div class="section-title"><i class="fas fa-microchip me-1"></i> Performance por Microinversor</div>
+  <!-- ── Seção 1: Impacto Financeiro & Ambiental ───────────────────────── -->
+  <section class="insight-section" aria-labelledby="financial-section-heading">
+    <h2 id="financial-section-heading" class="section-title">
+      <i class="fas fa-coins me-1" aria-hidden="true"></i>
+      Impacto Financeiro &amp; Ambiental
+      <button type="button"
+              class="hint-icon btn btn-link p-0 border-0"
+              tabindex="0"
+              aria-label="Informação: valores calculados desde a instalação do sistema"
+              data-bs-toggle="tooltip"
+              data-bs-placement="right"
+              data-bs-title="Valores acumulados desde a instalação do sistema, calculados sobre a geração total (lifetime) registrada pela ECU.">
+        <i class="fas fa-info-circle" aria-hidden="true"></i>
+      </button>
+    </h2>
+    <div class="row g-3" id="kpiRow1" aria-live="polite"></div>
+  </section>
+
+  <!-- ── Seção 2: Geração Hoje ────────────────────────────────────────── -->
+  <section class="insight-section" aria-labelledby="today-section-heading">
+    <h2 id="today-section-heading" class="section-title">
+      <i class="fas fa-calendar-day me-1" aria-hidden="true"></i>
+      Geração do Dia
+      <button type="button"
+              class="hint-icon btn btn-link p-0 border-0"
+              tabindex="0"
+              aria-label="Informação: dados de geração do dia selecionado"
+              data-bs-toggle="tooltip"
+              data-bs-placement="right"
+              data-bs-title="Energia gerada no dia selecionado. Os valores vêm dos summaries dos inversores; a comparação percentual é em relação ao dia anterior.">
+        <i class="fas fa-info-circle" aria-hidden="true"></i>
+      </button>
+    </h2>
+    <div class="row g-3" id="kpiRow2" aria-live="polite"></div>
+  </section>
+
+  <!-- ── B: Projeção + Comparativo Mensal ─────────────────────────────── -->
+  <section class="insight-section" aria-labelledby="projection-section-heading">
+    <h2 id="projection-section-heading" class="section-title">
+      <i class="fas fa-chart-line me-1" aria-hidden="true"></i>
+      Projeção &amp; Comparativo Mensal
+      <button type="button"
+              class="hint-icon btn btn-link p-0 border-0"
+              tabindex="0"
+              aria-label="Informação: metodologia de projeção e comparativo mensal"
+              data-bs-toggle="tooltip"
+              data-bs-placement="right"
+              data-bs-title="A projeção extrapola a média diária do mês atual para os dias restantes. O comparativo usa dados históricos de geração diária armazenados no banco.">
+        <i class="fas fa-info-circle" aria-hidden="true"></i>
+      </button>
+    </h2>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="card h-100">
+          <div class="card-body">
+            <h3 class="text-muted small text-uppercase fw-semibold mb-3 h6">
+              Projeção do Mês
+              <button type="button"
+                      class="hint-icon btn btn-link p-0 border-0"
+                      tabindex="0"
+                      aria-label="Fórmula da projeção do mês"
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="top"
+                      data-bs-title="Fórmula: (kWh acumulados ÷ dias decorridos) × total de dias do mês. A barra mostra o progresso em relação ao total projetado.">
+                <i class="fas fa-info-circle" aria-hidden="true"></i>
+              </button>
+            </h3>
+            <div id="monthProjectionBlock" aria-live="polite"></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card h-100">
+          <div class="card-body">
+            <h3 class="text-muted small text-uppercase fw-semibold mb-3 h6">
+              Comparativo com Mês Anterior
+              <button type="button"
+                      class="hint-icon btn btn-link p-0 border-0"
+                      tabindex="0"
+                      aria-label="Informação sobre o comparativo com mês anterior"
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="top"
+                      data-bs-title="Compara o total gerado no mês atual (ou até a data selecionada) com o total do mês imediatamente anterior, calculado a partir dos registros diários.">
+                <i class="fas fa-info-circle" aria-hidden="true"></i>
+              </button>
+            </h3>
+            <div id="monthComparisonBlock" aria-live="polite"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── C: Histórico 7 dias + Contribuição por Inversor ──────────────── -->
+  <section class="insight-section" aria-labelledby="history-section-heading">
+    <h2 id="history-section-heading" class="section-title">
+      <i class="fas fa-history me-1" aria-hidden="true"></i>
+      Histórico &amp; Contribuição
+      <button type="button"
+              class="hint-icon btn btn-link p-0 border-0"
+              tabindex="0"
+              aria-label="Informação sobre histórico e contribuição por inversor"
+              data-bs-toggle="tooltip"
+              data-bs-placement="right"
+              data-bs-title="O histórico mostra a geração diária dos 7 dias anteriores à data selecionada. A contribuição mostra quanto cada inversor representa no total do dia.">
+        <i class="fas fa-info-circle" aria-hidden="true"></i>
+      </button>
+    </h2>
+    <div class="row g-3">
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-body">
+            <h3 class="text-muted small text-uppercase fw-semibold mb-2 h6">
+              Geração — Últimos 7 dias (kWh)
+              <button type="button"
+                      class="hint-icon btn btn-link p-0 border-0"
+                      tabindex="0"
+                      aria-label="Legenda das cores do gráfico de 7 dias"
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="top"
+                      data-bs-title="Verde ≥60 kWh · Azul ≥30 kWh · Roxo &gt;0 kWh · Cinza = sem dados. Valor diário obtido pelo maior registro de energy_kwh_daily com panel_id nulo.">
+                <i class="fas fa-info-circle" aria-hidden="true"></i>
+              </button>
+            </h3>
+            <canvas id="history7dChart"
+                    height="160"
+                    role="img"
+                    aria-label="Gráfico de barras com geração dos últimos 7 dias em kWh"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-body">
+            <h3 class="text-muted small text-uppercase fw-semibold mb-2 h6">
+              Contribuição por Inversor (% do total)
+              <button type="button" class="hint-icon btn btn-link p-0 border-0" tabindex="0"
+                      aria-label="Percentual de cada inversor sobre a geração total do dia"
+                      data-bs-toggle="tooltip" data-bs-placement="top"
+                      data-bs-title="Percentual de cada inversor sobre a geração total do dia. Exibe até 15 inversores ordenados do maior para o menor. Útil para identificar inversores desproporcionalmente abaixo dos demais.">
+                <i class="fas fa-info-circle" aria-hidden="true"></i>
+              </button>
+            </h3>
+            <canvas id="inverterContribChart"
+                    height="160"
+                    role="img"
+                    aria-label="Gráfico de barras com contribuição percentual de geração por inversor"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Seção 3: Perfil do Dia ────────────────────────────────────────── -->
+  <section class="insight-section" id="profileSection" aria-labelledby="profile-section-heading">
+    <h2 id="profile-section-heading" class="section-title">
+      <i class="fas fa-chart-area me-1" aria-hidden="true"></i>
+      Perfil de Geração do Dia
+      <button type="button" class="hint-icon btn btn-link p-0 border-0" tabindex="0"
+              aria-label="Informação: perfil de geração extraído da telemetria minutely da ECU"
+              data-bs-toggle="tooltip" data-bs-placement="right"
+              data-bs-title="Dados extraídos da telemetria minutely da ECU. Representa o comportamento da geração ao longo do dia com granularidade de 1 minuto.">
+        <i class="fas fa-info-circle" aria-hidden="true"></i>
+      </button>
+    </h2>
+    <div class="card">
+      <div class="card-body">
+        <div class="profile-grid" id="profileGrid" aria-live="polite"></div>
+        <div id="efficientWindowBlock" class="mt-3" style="display:none">
+          <div class="alert alert-success d-flex align-items-center gap-2 mb-0 py-2" role="note">
+            <i class="fas fa-bolt" aria-hidden="true"></i>
+            <span>
+              Janela eficiente (&ge;50% potência máx.):
+              <strong id="efficientWindowLabel" aria-live="polite"></strong>
+              <button type="button" class="hint-icon btn btn-link p-0 border-0" tabindex="0"
+                      aria-label="Período contínuo acima de 50% do pico do dia"
+                      data-bs-toggle="tooltip" data-bs-placement="top"
+                      data-bs-title="Período contínuo em que a potência instantânea ficou acima de 50% do pico do dia. Representa as horas de maior produtividade solar.">
+                <i class="fas fa-info-circle" aria-hidden="true"></i>
+              </button>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── D: Comparativo Horário 14 Dias ───────────────────────────────── -->
+  <section class="insight-section" aria-labelledby="hourly-comp-heading">
+    <h2 id="hourly-comp-heading" class="section-title">
+      <i class="fas fa-clock me-1" aria-hidden="true"></i>
+      Comparativo Horário — Hoje vs Média 14 dias
+      <button type="button" class="hint-icon btn btn-link p-0 border-0" tabindex="0"
+              aria-label="Informação: barras cinza são média de 14 dias, linha verde é o dia atual"
+              data-bs-toggle="tooltip" data-bs-placement="right"
+              data-bs-title="Barras cinza-azuladas = média horária dos 14 dias anteriores. Linha verde = geração hora a hora do dia selecionado. Desvios abaixo da média podem indicar sombreamento ou falha pontual.">
+        <i class="fas fa-info-circle" aria-hidden="true"></i>
+      </button>
+    </h2>
+    <div class="card">
+      <div class="card-body">
+        <canvas id="hourlyCompChart" height="120"
+                role="img"
+                aria-label="Gráfico de barras comparando geração horária do dia atual versus média dos últimos 14 dias"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Seção 4: Performance por Microinversor ────────────────────────── -->
+  <section class="insight-section" aria-labelledby="perf-inverter-heading">
+    <h2 id="perf-inverter-heading" class="section-title">
+      <i class="fas fa-microchip me-1" aria-hidden="true"></i>
+      Performance por Microinversor
+      <button type="button" class="hint-icon btn btn-link p-0 border-0" tabindex="0"
+              aria-label="Informação: ranking dos microinversores por geração no dia"
+              data-bs-toggle="tooltip" data-bs-placement="right"
+              data-bs-title="Todos os microinversores ordenados por geração no dia. O ranking compara cada inversor com o melhor da sua série (804 ou 802) para identificar discrepâncias.">
+        <i class="fas fa-info-circle" aria-hidden="true"></i>
+      </button>
+    </h2>
     <div class="card">
       <div class="card-body p-0">
         <div class="table-responsive">
-          <table class="table table-sm table-hover inv-table mb-0">
+          <table class="table table-sm table-hover inv-table mb-0"
+                 aria-live="polite"
+                 aria-label="Performance dos microinversores">
+            <caption class="visually-hidden">
+              Ranking de performance dos microinversores: geração hoje, mês, lifetime, canais ativos e assimetria
+            </caption>
             <thead class="table-light">
               <tr>
-                <th style="width:40px">#</th>
-                <th>Inversor</th>
-                <th>Série</th>
-                <th class="text-end">Hoje (kWh)</th>
-                <th class="text-end">Mês (kWh)</th>
-                <th class="text-end">Lifetime (kWh)</th>
-                <th>Canais</th>
-                <th>% Melhor</th>
-                <th class="text-end">Assimet.</th>
+                <th scope="col" style="width:40px">#</th>
+                <th scope="col">Inversor</th>
+                <th scope="col">Série</th>
+                <th scope="col" class="text-end">
+                  Hoje (kWh)
+                  <button type="button" class="hint-icon btn btn-link p-0 border-0" tabindex="0"
+                          aria-label="Energia gerada pelo inversor hoje"
+                          data-bs-toggle="tooltip" data-bs-placement="top"
+                          data-bs-title="Energia gerada pelo inversor no dia selecionado, somando todos os canais ativos.">
+                    <i class="fas fa-info-circle" aria-hidden="true"></i>
+                  </button>
+                </th>
+                <th scope="col" class="text-end">
+                  Mês (kWh)
+                  <button type="button" class="hint-icon btn btn-link p-0 border-0" tabindex="0"
+                          aria-label="Energia gerada pelo inversor no mês"
+                          data-bs-toggle="tooltip" data-bs-placement="top"
+                          data-bs-title="Energia acumulada pelo inversor no mês corrente, conforme reportado no summary.">
+                    <i class="fas fa-info-circle" aria-hidden="true"></i>
+                  </button>
+                </th>
+                <th scope="col" class="text-end">
+                  Lifetime (kWh)
+                  <button type="button" class="hint-icon btn btn-link p-0 border-0" tabindex="0"
+                          aria-label="Energia total gerada pelo inversor desde a instalação"
+                          data-bs-toggle="tooltip" data-bs-placement="top"
+                          data-bs-title="Energia total gerada pelo inversor desde a instalação, conforme campo lifetime do summary.">
+                    <i class="fas fa-info-circle" aria-hidden="true"></i>
+                  </button>
+                </th>
+                <th scope="col">
+                  Canais
+                  <button type="button" class="hint-icon btn btn-link p-0 border-0" tabindex="0"
+                          aria-label="Legenda dos indicadores de canal: verde = ativo, vermelho = zero, cinza = inexistente"
+                          data-bs-toggle="tooltip" data-bs-placement="top"
+                          data-bs-title="Verde = canal com geração no dia. Vermelho = canal presente mas sem geração (zero). Cinza = canal não existente neste inversor.">
+                    <i class="fas fa-info-circle" aria-hidden="true"></i>
+                  </button>
+                </th>
+                <th scope="col">
+                  % Melhor
+                  <button type="button" class="hint-icon btn btn-link p-0 border-0" tabindex="0"
+                          aria-label="Percentual em relação ao melhor inversor da série"
+                          data-bs-toggle="tooltip" data-bs-placement="top"
+                          data-bs-title="Percentual em relação ao inversor de maior geração na mesma série. Abaixo de 85% = atenção (amarelo). Abaixo de 70% = crítico (vermelho).">
+                    <i class="fas fa-info-circle" aria-hidden="true"></i>
+                  </button>
+                </th>
+                <th scope="col" class="text-end">
+                  <abbr title="Assimetria entre canais">Assimet.</abbr>
+                  <button type="button" class="hint-icon btn btn-link p-0 border-0" tabindex="0"
+                          aria-label="Assimetria entre canais do inversor"
+                          data-bs-toggle="tooltip" data-bs-placement="top"
+                          data-bs-title="Diferença relativa entre o canal de maior e menor geração do inversor: (max - min) / max × 100. Acima de 15% é crítico; acima de 8% merece atenção.">
+                    <i class="fas fa-info-circle" aria-hidden="true"></i>
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody id="inverterTableBody"></tbody>
@@ -123,14 +520,60 @@
         </div>
       </div>
     </div>
-    <div id="seriesComparison" class="mt-3"></div>
-  </div>
+    <div id="seriesComparison" class="mt-3" aria-live="polite"></div>
+  </section>
 
-  <!-- ── Seção 5: Alertas do Dia ───────────────────────────────────────── -->
-  <div class="insight-section">
-    <div class="section-title"><i class="fas fa-bell me-1"></i> Alertas &amp; Anomalias do Dia</div>
-    <div id="alertsInsightBlock"></div>
-  </div>
+  <!-- ── E: Inversores em Atenção ─────────────────────────────────────── -->
+  <section class="insight-section" id="attentionSection" aria-labelledby="attention-heading">
+    <h2 id="attention-heading" class="section-title">
+      <i class="fas fa-exclamation-triangle me-1" aria-hidden="true" style="color:var(--warning-color);"></i>
+      Inversores em Atenção
+      <button type="button" class="hint-icon btn btn-link p-0 border-0" tabindex="0"
+              aria-label="Informação: critério de inversores em atenção"
+              data-bs-toggle="tooltip" data-bs-placement="right"
+              data-bs-title="Inversores com geração abaixo de 75% do melhor da mesma série. Pode indicar sombreamento parcial, painel com defeito ou canal desligado.">
+        <i class="fas fa-info-circle" aria-hidden="true"></i>
+      </button>
+    </h2>
+    <div id="attentionBlock" aria-live="polite"></div>
+  </section>
+
+  <!-- ── Seção 5: Alertas do Dia ──────────────────────────────────────── -->
+  <section class="insight-section" aria-labelledby="alerts-insight-heading">
+    <h2 id="alerts-insight-heading" class="section-title">
+      <i class="fas fa-bell me-1" aria-hidden="true"></i>
+      Alertas &amp; Anomalias do Dia
+      <button type="button" class="hint-icon btn btn-link p-0 border-0" tabindex="0"
+              aria-label="Informação sobre alertas automáticos do sistema"
+              data-bs-toggle="tooltip" data-bs-placement="right"
+              data-bs-title="Alertas gerados automaticamente pelo sistema de detecção de anomalias para a data selecionada. Alertas ativos ainda não foram investigados ou resolvidos.">
+        <i class="fas fa-info-circle" aria-hidden="true"></i>
+      </button>
+    </h2>
+    <div id="alertsInsightBlock" role="log" aria-live="polite" aria-label="Lista de alertas e anomalias do dia"></div>
+  </section>
+
+  <!-- ── F: Economia 6 Meses ──────────────────────────────────────────── -->
+  <section class="insight-section" aria-labelledby="savings-heading">
+    <h2 id="savings-heading" class="section-title">
+      <i class="fas fa-piggy-bank me-1" aria-hidden="true"></i>
+      Economia — Últimos 6 Meses
+      <button type="button" class="hint-icon btn btn-link p-0 border-0" tabindex="0"
+              aria-label="Informação sobre economia calculada nos últimos 6 meses"
+              data-bs-toggle="tooltip" data-bs-placement="right"
+              data-bs-title="Economia estimada mês a mês com base na geração diária registrada e na tarifa configurada em Configurações → Sistema (R$/kWh). O eixo esquerdo mostra kWh; o eixo direito mostra o valor em R$.">
+        <i class="fas fa-info-circle" aria-hidden="true"></i>
+      </button>
+    </h2>
+    <div class="card">
+      <div class="card-body">
+        <canvas id="savings6mChart"
+                height="120"
+                role="img"
+                aria-label="Gráfico de economia mensal em kWh e R$ nos últimos 6 meses"></canvas>
+      </div>
+    </div>
+  </section>
 
 </div><!-- /insightsContent -->
 {% endblock %}
@@ -139,12 +582,77 @@
 <script>
 const SERIES_COLOR = { '804': '#0d6efd', '802': '#6f42c1' };
 
-async function loadInsights() {
+// ── Chart registry (evita "Canvas already in use") ────────────────────────
+const _charts = {};
+function _destroyChart(id) {
+  if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; }
+}
+
+// ── Hint helper — gera botão acessível por teclado (WCAG 2.1.1, 4.1.2) ───────
+function _hint(text, placement) {
+  const p = placement || 'top';
+  const escaped = text.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  // Resumo breve para aria-label (primeiras 60 chars do texto)
+  const brief = text.length > 60 ? text.substring(0, 60) + '…' : text;
+  return `<button type="button" class="hint-icon btn btn-link p-0 border-0" tabindex="0"
+    aria-label="Informação: ${brief.replace(/"/g, '&quot;')}"
+    data-bs-toggle="tooltip" data-bs-placement="${p}" data-bs-title="${escaped}">
+    <i class="fas fa-info-circle" aria-hidden="true"></i>
+  </button>`;
+}
+
+// Inicializa (ou reinicializa) todos os tooltips da página
+function _initTooltips() {
+  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+    const existing = bootstrap.Tooltip.getInstance(el);
+    if (existing) existing.dispose();
+    new bootstrap.Tooltip(el, { trigger: 'hover focus' });
+  });
+}
+
+// ── Formatters ────────────────────────────────────────────────────────────
+function fmt(n, dec=2) {
+  if (n == null) return '—';
+  return Number(n).toLocaleString('pt-BR', {minimumFractionDigits:dec, maximumFractionDigits:dec});
+}
+function fmtBRL(n) {
+  return 'R$ ' + Number(n).toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
+}
+function fmtDate(iso) {
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}`;
+}
+
+// ── Date picker setup ─────────────────────────────────────────────────────
+async function loadInsights(targetDate) {
+  const picker = document.getElementById('datePicker');
+  const _now = new Date();
+  const todayIso = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
+  picker.max = todayIso;
+
+  if (targetDate) {
+    picker.value = targetDate;
+  } else if (!picker.value) {
+    picker.value = todayIso;
+  }
+  targetDate = picker.value || todayIso;
+
+  // Toggle historical banner
+  const isToday = targetDate === todayIso;
+  const banner  = document.getElementById('historicalBanner');
+  if (isToday) {
+    banner.style.display = 'none';
+  } else {
+    const [y, m, d] = targetDate.split('-');
+    document.getElementById('bannerDate').textContent = `${d}/${m}/${y}`;
+    banner.style.display = '';
+  }
+
   document.getElementById('insightsSpinner').style.display = 'flex';
   document.getElementById('insightsContent').style.display = 'none';
 
   try {
-    const res = await fetch('/api/insights');
+    const res = await fetch(`/api/insights?date=${targetDate}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const d = await res.json();
     if (d.status !== 'success') throw new Error(d.message || 'Erro desconhecido');
@@ -153,172 +661,431 @@ async function loadInsights() {
 
     const dt = new Date(d.generated_at);
     document.getElementById('generatedAt').textContent =
-      'Atualizado às ' + dt.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+      'Atualizado às ' + dt.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
 
     document.getElementById('insightsSpinner').style.display = 'none';
     document.getElementById('insightsContent').style.display = 'block';
+
+    _initTooltips();
   } catch(e) {
     document.getElementById('insightsSpinner').innerHTML =
-      `<div class="text-danger text-center"><i class="fas fa-exclamation-circle fa-2x mb-2"></i><br>${e.message}</div>`;
+      `<div class="text-danger text-center"><i class="fas fa-exclamation-circle fa-2x mb-2" aria-hidden="true"></i><br>${e.message}</div>`;
   }
 }
 
-function fmt(n, dec=2) {
-  if (n == null) return '—';
-  return Number(n).toLocaleString('pt-BR', {minimumFractionDigits:dec, maximumFractionDigits:dec});
-}
-function fmtBRL(n) {
-  return 'R$ ' + Number(n).toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
-}
+document.getElementById('datePicker').addEventListener('change', e => loadInsights(e.target.value));
+document.addEventListener('DOMContentLoaded', () => {
+  _initTooltips();   // inicializa hints estáticos do HTML
+  loadInsights();
+});
 
+// ── Main render ───────────────────────────────────────────────────────────
 function renderInsights(d) {
   const e = d.energy;
   const p = d.profile;
 
-  // ── KPI Row 1: Financial & Environmental ──
-  const kpi1 = document.getElementById('kpiRow1');
-  kpi1.innerHTML = `
+  renderHealth(d.health);
+  renderKpi1(e);
+  renderKpi2(e, p);
+  renderProjection(d.month_projection, d.monthly_comparison);
+  renderHistory7d(d.history_7d);
+  renderInverterContrib(d.inverter_contribution);
+  renderProfile(p);
+  renderHourlyComp(d.hourly_comparison);
+  renderInverterTable(d.inverters);
+  renderAttention(d.inverters_attention);
+  renderAlerts(d.alerts, d.alerts_unresolved);
+  renderSavings6m(d.savings_history_6m);
+}
+
+// ── A: Health Score ───────────────────────────────────────────────────────
+function renderHealth(h) {
+  if (!h) return;
+  const COLOR_MAP = { success:'#28a745', info:'#17a2b8', warning:'#ffc107', danger:'#dc3545' };
+  const col = COLOR_MAP[h.color] || '#6c757d';
+
+  document.getElementById('healthScoreVal').textContent = h.score;
+  document.getElementById('healthGradeVal').textContent = h.grade;
+  document.getElementById('healthScoreVal').style.color = col;
+
+  _destroyChart('healthRingChart');
+  const ctx = document.getElementById('healthRingChart').getContext('2d');
+  _charts['healthRingChart'] = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      datasets: [{
+        data: [h.score, 100 - h.score],
+        backgroundColor: [col, '#e9ecef'],
+        borderWidth: 0,
+        circumference: 280,
+        rotation: -140,
+      }]
+    },
+    options: {
+      responsive: false,
+      cutout: '72%',
+      plugins: { legend:{display:false}, tooltip:{enabled:false} },
+      animation: { duration: 700 }
+    }
+  });
+
+  const c = h.components;
+  document.getElementById('healthComponents').innerHTML = `
+    ${_compBar('Capacidade',    c.capacity,  40, '#28a745', 'Fator de capacidade real ÷ 100 × 40 pts. Representa o aproveitamento da irradiação solar no dia.')}
+    ${_compBar('Inversores OK', c.inverters, 30, '#17a2b8', 'Proporção de inversores com geração ≥ 85% do melhor da mesma série × 30 pts.')}
+    ${_compBar('Sem alertas',   c.alerts,    20, '#6f42c1', '20 pts se não há alertas ativos no dia; 0 pts se houver qualquer alerta não resolvido.')}
+    ${_compBar('Assimetria',    c.asymmetry, 10, '#fd7e14', 'Penaliza a maior assimetria entre canais de um inversor. 10 pts se ≤ 0%; 0 pts se ≥ 25% de diferença entre canais.')}
+  `;
+}
+
+function _compBar(label, val, max, color, hintText) {
+  const pct = max > 0 ? Math.round((val / max) * 100) : 0;
+  return `
+    <div class="col-6 col-md-3">
+      <div class="p-2 rounded" style="background:#f8f9fa">
+        <div class="d-flex justify-content-between mb-1">
+          <small class="text-muted">${label} ${_hint(hintText)}</small>
+          <small class="fw-semibold">${fmt(val,1)}/${max}</small>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+      </div>
+    </div>`;
+}
+
+// ── Seção 1: KPI Financial & Environmental ────────────────────────────────
+function renderKpi1(e) {
+  document.getElementById('kpiRow1').innerHTML = `
     <div class="col-6 col-md-4 col-lg-2">
       <div class="card kpi-card kpi-grey">
         <div class="kpi-value">${fmt(e.lifetime_kwh, 0)} kWh</div>
-        <div class="kpi-label">Gerado total (lifetime)</div>
+        <div class="kpi-label">Gerado total (lifetime) ${_hint('Total acumulado de energia gerada desde a instalação. Fonte: campo energy_kwh_total reportado pela ECU.')}</div>
       </div>
     </div>
     <div class="col-6 col-md-4 col-lg-2">
       <div class="card kpi-card kpi-green">
         <div class="kpi-value">${fmtBRL(e.financial_savings_brl)}</div>
-        <div class="kpi-label">Economia estimada</div>
-        <div class="kpi-sub">@ R$ 0,80/kWh</div>
+        <div class="kpi-label">Economia estimada ${_hint('Calculado sobre o total lifetime usando a tarifa definida em Configurações → Sistema. Representa o custo evitado na conta de luz.')}</div>
+        <div class="kpi-sub">@ R$ ${Number(e.tariff_brl).toFixed(2).replace('.',',')}/kWh</div>
       </div>
     </div>
     <div class="col-6 col-md-4 col-lg-2">
       <div class="card kpi-card kpi-leaf">
         <div class="kpi-value">${fmt(e.co2_avoided_tonnes, 1)} t</div>
-        <div class="kpi-label">CO₂ evitado</div>
+        <div class="kpi-label">CO₂ evitado ${_hint('Estimativa baseada no fator de emissão de 0,5 kg CO₂/kWh, representando a média da matriz elétrica brasileira (ANEEL).')}</div>
         <div class="kpi-sub">${fmt(e.co2_avoided_kg, 0)} kg</div>
       </div>
     </div>
     <div class="col-6 col-md-4 col-lg-2">
       <div class="card kpi-card kpi-blue">
         <div class="kpi-value">${fmt(e.year_kwh, 0)} kWh</div>
-        <div class="kpi-label">Gerado este ano</div>
+        <div class="kpi-label">Gerado este ano ${_hint('Soma do campo year dos summaries de todos os inversores. Representa a geração acumulada desde 1º de janeiro.')}</div>
       </div>
     </div>
     <div class="col-6 col-md-4 col-lg-2">
       <div class="card kpi-card kpi-teal">
         <div class="kpi-value">${fmt(e.month_kwh, 0)} kWh</div>
-        <div class="kpi-label">Gerado este mês</div>
+        <div class="kpi-label">Gerado este mês ${_hint('Soma do campo month dos summaries de todos os inversores. Representa a geração acumulada desde o 1º do mês.')}</div>
       </div>
     </div>
     <div class="col-6 col-md-4 col-lg-2">
       <div class="card kpi-card kpi-orange">
         <div class="kpi-value">${fmt(e.installed_kw, 2)} kWp</div>
-        <div class="kpi-label">Capacidade instalada</div>
+        <div class="kpi-label">Capacidade instalada ${_hint('Potência nominal total do sistema fotovoltaico instalado (kWp = kilowatt-pico). Valor fixo de referência para cálculo do fator de capacidade.')}</div>
       </div>
     </div>
   `;
+}
 
-  // ── KPI Row 2: Today ──
-  const chgPct = e.day_change_pct;
+// ── Seção 2: KPI Today ────────────────────────────────────────────────────
+function renderKpi2(e, p) {
+  const chgPct   = e.day_change_pct;
   const chgClass = chgPct == null ? 'change-flat' : (chgPct >= 0 ? 'change-up' : 'change-down');
   const chgIcon  = chgPct == null ? '' : (chgPct >= 0 ? '▲' : '▼');
   const chgText  = chgPct == null ? '—' : `${chgIcon} ${Math.abs(chgPct)}% vs ontem`;
-
   const capFactor = (p && p.capacity_factor_pct != null) ? p.capacity_factor_pct : null;
-  const capBar    = capFactor != null ? `<div class="bar-bg mt-1"><div class="bar-fill bg-success" style="width:${Math.min(capFactor,100)}%"></div></div>` : '';
+  const capBar    = capFactor != null
+    ? `<div class="bar-bg mt-1"><div class="bar-fill bg-success" style="width:${Math.min(capFactor,100)}%"></div></div>`
+    : '';
 
-  const kpi2 = document.getElementById('kpiRow2');
-  kpi2.innerHTML = `
+  document.getElementById('kpiRow2').innerHTML = `
     <div class="col-6 col-md-3">
       <div class="card kpi-card kpi-green">
         <div class="kpi-value">${fmt(e.today_kwh, 2)} kWh</div>
-        <div class="kpi-label">Gerado hoje</div>
+        <div class="kpi-label">Gerado no dia ${_hint('Soma do campo today dos summaries de todos os inversores para a data selecionada.')}</div>
         <div class="kpi-sub"><span class="${chgClass}">${chgText}</span></div>
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="card kpi-card kpi-grey">
         <div class="kpi-value">${fmt(e.yesterday_kwh, 2)} kWh</div>
-        <div class="kpi-label">Gerado ontem</div>
+        <div class="kpi-label">Gerado ontem ${_hint('Energia total gerada no dia anterior (D-1), obtida dos summaries históricos dos inversores.')}</div>
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="card kpi-card kpi-blue">
         <div class="kpi-value">${capFactor != null ? capFactor + '%' : '—'}</div>
-        <div class="kpi-label">Fator de capacidade</div>
+        <div class="kpi-label">Fator de capacidade ${_hint('Relação entre a potência média ativa (períodos com geração > 0) e a capacidade nominal instalada (15,95 kWp). Indica o aproveitamento real da irradiação solar no dia.')}</div>
         ${capBar}
       </div>
     </div>
     <div class="col-6 col-md-3">
       <div class="card kpi-card kpi-teal">
         <div class="kpi-value">${(p && p.peak_power_w) ? (p.peak_power_w/1000).toFixed(2) + ' kW' : '—'}</div>
-        <div class="kpi-label">Pico de potência</div>
+        <div class="kpi-label">Pico de potência ${_hint('Maior valor de potência instantânea registrado na telemetria minutely da ECU no dia. Indica o melhor momento de irradiação solar.')}</div>
         <div class="kpi-sub">${(p && p.peak_power_pct) ? p.peak_power_pct + '% da capacidade' : ''}</div>
       </div>
     </div>
   `;
+}
 
-  // ── Profile grid ──
-  if (p && p.start_time) {
-    const durH = p.duration_minutes != null ? Math.floor(p.duration_minutes/60)+'h '+(p.duration_minutes%60)+'min' : '—';
-    document.getElementById('profileGrid').innerHTML = `
-      <div class="profile-item">
-        <div class="pval">${p.start_time || '—'}</div>
-        <div class="plbl">Início da geração</div>
+// ── B: Projeção + Comparativo ─────────────────────────────────────────────
+function renderProjection(mp, mc) {
+  if (!mp) return;
+  const progPct = Math.min(mp.progress_pct, 100);
+  document.getElementById('monthProjectionBlock').innerHTML = `
+    <div class="row g-2 mb-2">
+      <div class="col-6 text-center">
+        <div style="font-size:1.5rem;font-weight:700;color:#007bff">${fmt(mp.actual_kwh)} kWh</div>
+        <div class="text-muted small">Acumulado (${mp.elapsed_days} dias)</div>
       </div>
-      <div class="profile-item">
-        <div class="pval">${p.peak_time || '—'}</div>
-        <div class="plbl">Horário do pico</div>
+      <div class="col-6 text-center">
+        <div style="font-size:1.5rem;font-weight:700;color:#28a745">${fmt(mp.projected_kwh)} kWh</div>
+        <div class="text-muted small">Projeção (${mp.days_in_month} dias)</div>
       </div>
-      <div class="profile-item">
-        <div class="pval">${p.end_time || '—'}</div>
-        <div class="plbl">Fim da geração</div>
+    </div>
+    <div class="bar-bg mb-1" style="height:12px">
+      <div class="bar-fill bg-primary" style="width:${progPct}%;height:12px"></div>
+    </div>
+    <div class="d-flex justify-content-between">
+      <small class="text-muted">${fmt(mp.progress_pct)}% do projetado</small>
+      <small class="text-muted">Média: ${fmt(mp.daily_avg_kwh)} kWh/dia</small>
+    </div>
+  `;
+
+  if (!mc) return;
+  const chgPct = mc.change_pct;
+  const chgCls = chgPct == null ? '' : (chgPct >= 0 ? 'text-success' : 'text-danger');
+  const chgIco = chgPct == null ? '' : (chgPct >= 0 ? 'fa-arrow-up' : 'fa-arrow-down');
+  const chgStr = chgPct == null ? '—' : `${Math.abs(chgPct)}%`;
+  document.getElementById('monthComparisonBlock').innerHTML = `
+    <div class="row g-2">
+      <div class="col-6 text-center">
+        <div style="font-size:1.5rem;font-weight:700">${fmt(mc.current_month_kwh)} kWh</div>
+        <div class="text-muted small">${mc.current_label}</div>
       </div>
-      <div class="profile-item">
-        <div class="pval">${durH}</div>
-        <div class="plbl">Duração solar</div>
+      <div class="col-6 text-center">
+        <div style="font-size:1.5rem;font-weight:700;color:#6c757d">${fmt(mc.prev_month_kwh)} kWh</div>
+        <div class="text-muted small">${mc.prev_label}</div>
       </div>
-      <div class="profile-item">
-        <div class="pval">${p.avg_active_power_w ? (p.avg_active_power_w/1000).toFixed(2) + ' kW' : '—'}</div>
-        <div class="plbl">Média durante sol</div>
-      </div>
-      <div class="profile-item">
-        <div class="pval">${p.data_points || 0}</div>
-        <div class="plbl">Leituras (min.)</div>
-      </div>
-    `;
-  } else {
+    </div>
+    <div class="text-center mt-3">
+      <span class="fs-5 fw-semibold ${chgCls}">
+        ${chgStr !== '—' ? '<i class="fas ' + chgIco + ' me-1" aria-hidden="true"></i>' : ''}${chgStr}
+      </span>
+      <div class="text-muted small">vs mês anterior</div>
+    </div>
+  `;
+}
+
+// ── C: Histórico 7 dias (bar chart) ──────────────────────────────────────
+function renderHistory7d(history) {
+  if (!history || !history.length) return;
+  const labels = history.map(h => fmtDate(h.date));
+  const values = history.map(h => h.kwh);
+  const colors = values.map(v =>
+    v >= 60  ? '#28a745' :
+    v >= 30  ? '#17a2b8' :
+    v >  0   ? '#6f42c1' : '#dee2e6'
+  );
+
+  _destroyChart('history7dChart');
+  const ctx = document.getElementById('history7dChart').getContext('2d');
+  _charts['history7dChart'] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'kWh',
+        data: values,
+        backgroundColor: colors,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(2)} kWh` } }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { font:{size:10} } },
+        x: { ticks: { font:{size:10} } }
+      }
+    }
+  });
+}
+
+// ── C: Contribuição por inversor (horizontal bar) ─────────────────────────
+function renderInverterContrib(contrib) {
+  if (!contrib || !contrib.length) return;
+  const labels = contrib.map(c => c.uid);
+  const values = contrib.map(c => c.pct_total);
+  const colors = contrib.map(c => SERIES_COLOR[c.series] || '#6c757d');
+
+  _destroyChart('inverterContribChart');
+  const ctx = document.getElementById('inverterContribChart').getContext('2d');
+  _charts['inverterContribChart'] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '% do total',
+        data: values,
+        backgroundColor: colors,
+        borderRadius: 3,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x.toFixed(1)}%` } }
+      },
+      scales: {
+        x: { beginAtZero: true, max: Math.ceil(Math.max(...values) * 1.1), ticks:{ font:{size:9} } },
+        y: { ticks: { font:{size:9} } }
+      }
+    }
+  });
+}
+
+// ── Seção 3: Profile ──────────────────────────────────────────────────────
+function renderProfile(p) {
+  if (!p || !p.start_time) {
     document.getElementById('profileSection').style.display = 'none';
+    return;
   }
+  const durH = p.duration_minutes != null
+    ? Math.floor(p.duration_minutes / 60) + 'h ' + (p.duration_minutes % 60) + 'min'
+    : '—';
+  document.getElementById('profileGrid').innerHTML = `
+    <div class="profile-item">
+      <div class="pval">${p.start_time || '—'}</div>
+      <div class="plbl">Início da geração ${_hint('Primeiro horário com potência instantânea acima de 0W registrado na telemetria minutely.')}</div>
+    </div>
+    <div class="profile-item">
+      <div class="pval">${p.peak_time || '—'}</div>
+      <div class="plbl">Horário do pico ${_hint('Horário correspondente ao maior valor de potência instantânea do dia na telemetria da ECU.')}</div>
+    </div>
+    <div class="profile-item">
+      <div class="pval">${p.end_time || '—'}</div>
+      <div class="plbl">Fim da geração ${_hint('Último horário com potência acima de 0W antes do pôr do sol, conforme telemetria minutely.')}</div>
+    </div>
+    <div class="profile-item">
+      <div class="pval">${durH}</div>
+      <div class="plbl">Duração solar ${_hint('Intervalo de tempo entre o início e o fim da geração com potência positiva. Representa o período de sol efetivo no dia.')}</div>
+    </div>
+    <div class="profile-item">
+      <div class="pval">${p.avg_active_power_w ? (p.avg_active_power_w/1000).toFixed(2) + ' kW' : '—'}</div>
+      <div class="plbl">Média durante sol ${_hint('Média de potência calculada apenas sobre os pontos com geração > 0W. Exclui períodos noturnos, representando o desempenho real nas horas de sol.')}</div>
+    </div>
+    <div class="profile-item">
+      <div class="pval">${p.data_points || 0}</div>
+      <div class="plbl">Leituras (min.) ${_hint('Quantidade total de pontos na série temporal minutely da ECU para o dia. Em condições normais, ~720 pontos por dia (1 por minuto × 12h de sol).')}</div>
+    </div>
+  `;
+  if (p.efficient_window) {
+    document.getElementById('efficientWindowLabel').textContent = p.efficient_window.label;
+    document.getElementById('efficientWindowBlock').style.display = '';
+  }
+}
 
-  // ── Inverter table ──
-  const tbody = document.getElementById('inverterTableBody');
+// ── D: Comparativo Horário 14 dias ────────────────────────────────────────
+function renderHourlyComp(hc) {
+  if (!hc || !hc.labels) return;
+  _destroyChart('hourlyCompChart');
+  const ctx = document.getElementById('hourlyCompChart').getContext('2d');
+  _charts['hourlyCompChart'] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: hc.labels,
+      datasets: [
+        {
+          type: 'bar',
+          label: 'Média 14 dias',
+          data: hc.avg_14d,
+          backgroundColor: 'rgba(23,162,184,0.55)',
+          borderColor: '#17a2b8',
+          borderWidth: 1,
+          borderRadius: 3,
+          order: 2,
+        },
+        {
+          type: 'line',
+          label: 'Hoje',
+          data: hc.today,
+          borderColor: '#28a745',
+          backgroundColor: 'rgba(40,167,69,0.12)',
+          borderWidth: 2,
+          pointRadius: 3,
+          tension: 0.3,
+          fill: true,
+          order: 1,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { position:'top', labels:{font:{size:11}} },
+        tooltip: {
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(3)} kWh` }
+        }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks:{ font:{size:10} } },
+        x: { ticks:{ font:{size:10} } }
+      }
+    }
+  });
+}
+
+// ── Seção 4: Inverter table ───────────────────────────────────────────────
+function renderInverterTable(inverters) {
+  const tbody  = document.getElementById('inverterTableBody');
   tbody.innerHTML = '';
-  const maxToday = d.inverters.length > 0 ? d.inverters[0].today_kwh : 1;
+  const maxToday = inverters.length > 0 ? inverters[0].today_kwh : 1;
 
-  d.inverters.forEach((inv, idx) => {
-    const isFirst = idx === 0;
-    const isLast  = idx === d.inverters.length - 1;
-    const rankCls = isFirst ? 'rank-1' : (isLast ? 'rank-last' : '');
+  inverters.forEach((inv, idx) => {
+    const isFirst  = idx === 0;
+    const isLast   = idx === inverters.length - 1;
+    const rankCls  = isFirst ? 'rank-1' : (isLast ? 'rank-last' : '');
     const seriesColor = SERIES_COLOR[inv.series] || '#6c757d';
-    const barW = maxToday > 0 ? Math.round((inv.today_kwh / maxToday) * 100) : 0;
 
-    // Channel dots
     let dotHtml = '';
     for (let ch = 1; ch <= 4; ch++) {
       const v = inv.channels[ch];
-      let cls;
-      if (v == null)     cls = 'dot-na';
-      else if (v === 0)  cls = 'dot-zero';
-      else               cls = 'dot-ok';
-      dotHtml += `<span class="channel-dot ${cls}" title="Ch${ch}: ${v != null ? v+' kWh' : 'N/A'}"></span>`;
+      // Ícone + texto sr-only para não depender só de cor (WCAG 1.4.1 A)
+      const cls   = v == null ? 'dot-na' : (v === 0 ? 'dot-zero' : 'dot-ok');
+      const sym   = v == null ? '—' : (v === 0 ? '✕' : '✓');
+      const label = v == null
+        ? `Canal ${ch}: não disponível`
+        : (v === 0 ? `Canal ${ch}: sem geração` : `Canal ${ch}: ${v} kWh`);
+      dotHtml += `<span class="channel-dot ${cls}"
+        role="img"
+        aria-label="${label}"
+        title="${label}">${sym}<span class="visually-hidden"> ${label}</span></span>`;
     }
 
     const asym = inv.asymmetry_pct != null
       ? `<span class="${inv.asymmetry_pct > 15 ? 'text-danger fw-semibold' : (inv.asymmetry_pct > 8 ? 'text-warning' : 'text-muted')}">${inv.asymmetry_pct}%</span>`
       : '<span class="text-muted">—</span>';
 
-    const pctBest = inv.pct_of_best != null ? inv.pct_of_best : 100;
+    const pctBest  = inv.pct_of_best != null ? inv.pct_of_best : 100;
     const barColor = pctBest < 70 ? 'bg-danger' : (pctBest < 85 ? 'bg-warning' : 'bg-success');
 
     tbody.innerHTML += `
@@ -341,9 +1108,9 @@ function renderInsights(d) {
     `;
   });
 
-  // ── Series summary ──
+  // Series summary
   const byS = {};
-  d.inverters.forEach(inv => {
+  inverters.forEach(inv => {
     if (!byS[inv.series]) byS[inv.series] = { count:0, today:0, month:0 };
     byS[inv.series].count++;
     byS[inv.series].today  += inv.today_kwh;
@@ -364,56 +1131,170 @@ function renderInsights(d) {
   }
   seriesHtml += '</div>';
   document.getElementById('seriesComparison').innerHTML = seriesHtml;
-
-  // ── Alerts ──
-  const alertsBlock = document.getElementById('alertsInsightBlock');
-  if (d.alerts.length === 0) {
-    alertsBlock.innerHTML = `
-      <div class="alert alert-success d-flex align-items-center gap-2 mb-0">
-        <i class="fas fa-check-circle"></i>
-        <span>Nenhum alerta registrado hoje. Sistema operando normalmente.</span>
-      </div>`;
-  } else {
-    const unresolvedBadge = d.alerts_unresolved > 0
-      ? `<span class="badge bg-danger ms-2">${d.alerts_unresolved} ativo${d.alerts_unresolved > 1 ? 's' : ''}</span>`
-      : '<span class="badge bg-success ms-2">Todos resolvidos</span>';
-    let rows = '';
-    d.alerts.forEach(a => {
-      const sevBg = {critical:'danger', warning:'warning', info:'info'}[a.severity] || 'secondary';
-      const rowCls = `alert-row-${a.severity}`;
-      const resIcon = a.resolved
-        ? '<span class="badge bg-success">Resolvido</span>'
-        : `<span class="badge bg-${sevBg === 'warning' ? 'warning text-dark' : sevBg}">${a.severity}</span>`;
-      rows += `
-        <tr class="${rowCls}">
-          <td>${a.time}</td>
-          <td><span class="badge bg-secondary">${a.type}</span></td>
-          <td>${a.message}</td>
-          <td>${resIcon}</td>
-        </tr>`;
-    });
-    alertsBlock.innerHTML = `
-      <div class="card">
-        <div class="card-header d-flex align-items-center">
-          <i class="fas fa-exclamation-triangle me-2 text-warning"></i>
-          <strong>${d.alerts.length} alerta${d.alerts.length>1?'s':''} hoje</strong>
-          ${unresolvedBadge}
-        </div>
-        <div class="card-body p-0">
-          <div class="table-responsive">
-            <table class="table table-sm mb-0">
-              <thead class="table-light">
-                <tr><th>Hora</th><th>Tipo</th><th>Mensagem</th><th>Status</th></tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-        </div>
-      </div>`;
-  }
 }
 
-// Load on page open
-document.addEventListener('DOMContentLoaded', loadInsights);
+// ── E: Inversores em Atenção ──────────────────────────────────────────────
+function renderAttention(attention) {
+  const blk = document.getElementById('attentionBlock');
+  if (!attention || !attention.length) {
+    blk.innerHTML = `
+      <div class="alert alert-success d-flex align-items-center gap-2 mb-0">
+        <i class="fas fa-check-circle" aria-hidden="true"></i>
+        <span>Todos os inversores operando dentro do esperado (&ge;75% do melhor).</span>
+      </div>`;
+    return;
+  }
+  let rows = '';
+  attention.forEach(inv => {
+    const seriesColor = SERIES_COLOR[inv.series] || '#6c757d';
+    const pctCls = inv.pct_of_best < 50 ? 'text-danger fw-bold' : 'text-warning fw-semibold';
+    rows += `
+      <tr>
+        <td class="text-center">${inv.rank_overall}</td>
+        <td class="font-monospace" style="font-size:.82rem">${inv.uid}</td>
+        <td><span class="badge" style="background:${seriesColor}">${inv.series}</span></td>
+        <td class="text-end">${fmt(inv.today_kwh, 3)} kWh</td>
+        <td class="text-end"><span class="${pctCls}">${inv.pct_of_best}%</span></td>
+        <td class="text-center">${inv.zero_channels > 0 ? `<span class="badge bg-danger">${inv.zero_channels} ch zero</span>` : '—'}</td>
+      </tr>`;
+  });
+  blk.innerHTML = `
+    <div class="card border-warning">
+      <div class="card-header bg-warning bg-opacity-10 d-flex align-items-center gap-2">
+        <i class="fas fa-exclamation-triangle text-warning" aria-hidden="true"></i>
+        <strong>${attention.length} inversor${attention.length > 1 ? 'es' : ''} abaixo de 75%</strong>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover att-table mb-0">
+            <thead class="table-light">
+              <tr>
+                <th style="width:40px">#</th>
+                <th>Inversor</th>
+                <th>Série</th>
+                <th class="text-end">Hoje (kWh)</th>
+                <th class="text-end">% Melhor</th>
+                <th class="text-center">Canais zero</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── Seção 5: Alerts ───────────────────────────────────────────────────────
+function renderAlerts(alerts, unresolvedCount) {
+  const alertsBlock = document.getElementById('alertsInsightBlock');
+  if (!alerts || alerts.length === 0) {
+    alertsBlock.innerHTML = `
+      <div class="alert alert-success d-flex align-items-center gap-2 mb-0">
+        <i class="fas fa-check-circle" aria-hidden="true"></i>
+        <span>Nenhum alerta registrado. Sistema operando normalmente.</span>
+      </div>`;
+    return;
+  }
+  const unresolvedBadge = unresolvedCount > 0
+    ? `<span class="badge bg-danger ms-2">${unresolvedCount} ativo${unresolvedCount > 1 ? 's' : ''}</span>`
+    : '<span class="badge bg-success ms-2">Todos resolvidos</span>';
+  let rows = '';
+  alerts.forEach(a => {
+    const sevBg  = {critical:'danger', warning:'warning', info:'info'}[a.severity] || 'secondary';
+    const rowCls = `alert-row-${a.severity}`;
+    const resIcon = a.resolved
+      ? '<span class="badge bg-success">Resolvido</span>'
+      : `<span class="badge bg-${sevBg === 'warning' ? 'warning text-dark' : sevBg}">${a.severity}</span>`;
+    rows += `
+      <tr class="${rowCls}">
+        <td>${a.time}</td>
+        <td><span class="badge bg-secondary">${a.type}</span></td>
+        <td>${a.message}</td>
+        <td>${resIcon}</td>
+      </tr>`;
+  });
+  alertsBlock.innerHTML = `
+    <div class="card">
+      <div class="card-header d-flex align-items-center">
+        <i class="fas fa-exclamation-triangle me-2 text-warning" aria-hidden="true"></i>
+        <strong>${alerts.length} alerta${alerts.length > 1 ? 's' : ''} hoje</strong>
+        ${unresolvedBadge}
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead class="table-light">
+              <tr><th>Hora</th><th>Tipo</th><th>Mensagem</th><th>Status</th></tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── F: Economia 6 meses (line dual-axis) ──────────────────────────────────
+function renderSavings6m(savings) {
+  if (!savings || !savings.length) return;
+  const labels = savings.map(s => s.label);
+  const kwhs   = savings.map(s => s.kwh);
+  const brls   = savings.map(s => s.brl);
+
+  _destroyChart('savings6mChart');
+  const ctx = document.getElementById('savings6mChart').getContext('2d');
+  _charts['savings6mChart'] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'kWh gerado',
+          data: kwhs,
+          borderColor: '#007bff',
+          backgroundColor: 'rgba(0,123,255,0.1)',
+          borderWidth: 2,
+          pointRadius: 4,
+          tension: 0.3,
+          fill: true,
+          yAxisID: 'y',
+        },
+        {
+          label: 'Economia (R$)',
+          data: brls,
+          borderColor: '#28a745',
+          backgroundColor: 'rgba(40,167,69,0.08)',
+          borderWidth: 2,
+          pointRadius: 4,
+          tension: 0.3,
+          fill: false,
+          yAxisID: 'y1',
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position:'top', labels:{font:{size:11}} },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const v = ctx.parsed.y;
+              return ctx.dataset.yAxisID === 'y1'
+                ? ` R$ ${v.toLocaleString('pt-BR', {minimumFractionDigits:2})}`
+                : ` ${v.toFixed(2)} kWh`;
+            }
+          }
+        }
+      },
+      scales: {
+        y:  { beginAtZero:true, position:'left',  title:{display:true, text:'kWh', font:{size:10}}, ticks:{font:{size:10}} },
+        y1: { beginAtZero:true, position:'right', title:{display:true, text:'R$',  font:{size:10}}, ticks:{font:{size:10}}, grid:{drawOnChartArea:false} },
+        x:  { ticks:{font:{size:10}} }
+      }
+    }
+  });
+}
 </script>
 {% endblock %}

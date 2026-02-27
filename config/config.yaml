@@ -16,9 +16,11 @@ scheduler:
   collection_interval: 0 18 * * *
   collection_on_startup: false
   evening_summary_enabled: true
-  evening_summary_interval: 0 21 * * *
-  statistics_enabled: true
+  evening_summary_interval: 15 20 * * *
+  statistics_enabled: false
   statistics_interval: 5 21 * * *
+system:
+  tariff_brl: 1.0
 web:
   debug: false
   host: 0.0.0.0

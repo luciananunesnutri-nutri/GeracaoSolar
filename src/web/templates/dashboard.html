@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - Monitoramento Solar{% endblock %}
+{% block title %}Dashboard — Monitoramento Solar{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active" aria-current="page">Dashboard</li>
+{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -28,154 +32,277 @@
 
 {% block content %}
 
+<!-- ── Seção: Estatísticas do dia ─────────────────────────────────────────────── -->
+<section aria-labelledby="section-today-heading">
+    <h2 id="section-today-heading" class="visually-hidden">Estatísticas de hoje</h2>
 
-<!-- Cards: dados do dia -->
-<div class="row g-2 g-md-3 mb-1">
-    <div class="col-6 col-md-3">
-        <div class="card stat-card h-100">
-            <i class="fas fa-bolt fa-2x mb-3 text-warning"></i>
-            <div class="stat-value" id="currentPower">-- W</div>
-            <div class="stat-label">Potência Atual</div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card stat-card h-100">
-            <i class="fas fa-sun fa-2x mb-3 text-primary"></i>
-            <div class="stat-value" id="energyToday">-- kWh</div>
-            <div class="stat-label">Geração Hoje</div>
-            <div id="energyYesterdayLabel" class="text-muted mt-1" style="font-size:0.75rem; min-height:1.1em;"></div>
-            <div id="todayVsYesterdayBadge" class="mt-1" style="min-height:1.4em;"></div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card stat-card h-100">
-            <i class="fas fa-arrow-up fa-2x mb-3 text-success"></i>
-            <div class="stat-value" id="peakPower">-- W</div>
-            <div id="peakEnergy" class="text-primary fw-semibold" style="font-size:1rem; min-height:1.2em;">-- kWh</div>
-            <div class="stat-label">Pico Hoje</div>
-            <div id="peakPowerTime" class="text-muted mt-1" style="font-size:0.75rem; min-height:1.1em;"></div>
-        </div>
-    </div>
-    <div class="col-6 col-md-3">
-        <div class="card stat-card h-100">
-            <i class="fas fa-chart-line fa-2x mb-3 text-info"></i>
-            <div class="stat-value" id="totalEnergy">-- kWh</div>
-            <div class="stat-label">Total Gerado</div>
-        </div>
-    </div>
-</div>
+    <!-- Cards: dados do dia -->
+    <div class="row g-2 g-md-3 mb-1" role="list" aria-label="Indicadores de geração do dia">
 
-<!-- Cards: mês / ano / lifetime -->
-<div class="row g-2 g-md-3 mt-0 mb-1">
-    <div class="col-6 col-md-4">
-        <div class="card stat-card h-100">
-            <i class="fas fa-calendar-alt fa-2x mb-3 text-secondary"></i>
-            <div class="stat-value" id="energyMonth">-- kWh</div>
-            <div class="stat-label">Geração no Mês</div>
-            <div id="energyMonthPrevYear" class="text-muted mt-1" style="font-size:0.75rem; min-height:1.1em;"></div>
-            <div id="monthVsLastYearBadge" class="mt-1" style="min-height:1.4em;"></div>
+        <div class="col-6 col-md-3" role="listitem">
+            <article class="card stat-card h-100" aria-labelledby="label-currentPower">
+                <i class="fas fa-bolt fa-2x mb-3 text-warning" aria-hidden="true"></i>
+                <div class="stat-value"
+                     id="currentPower"
+                     aria-live="polite"
+                     aria-atomic="true"
+                     aria-describedby="label-currentPower">-- W</div>
+                <div class="stat-label" id="label-currentPower">Potência Atual</div>
+            </article>
         </div>
-    </div>
-    <div class="col-6 col-md-4">
-        <div class="card stat-card h-100">
-            <i class="fas fa-calendar fa-2x mb-3 text-warning"></i>
-            <div class="stat-value" id="energyYear">-- kWh</div>
-            <div class="stat-label">Geração no Ano</div>
-        </div>
-    </div>
-    <div class="col-12 col-md-4">
-        <div class="card stat-card h-100">
-            <i class="fas fa-infinity fa-2x mb-3 text-success"></i>
-            <div class="stat-value" id="energyLifetime">-- kWh</div>
-            <div class="stat-label">Total Acumulado</div>
-        </div>
-    </div>
-</div>
 
-<!-- Gráfico diário (minutely / hourly) -->
-<div class="row mt-2">
+        <div class="col-6 col-md-3" role="listitem">
+            <article class="card stat-card h-100" aria-labelledby="label-energyToday">
+                <i class="fas fa-sun fa-2x mb-3" aria-hidden="true" style="color:var(--primary-color);"></i>
+                <div class="stat-value"
+                     id="energyToday"
+                     aria-live="polite"
+                     aria-atomic="true"
+                     aria-describedby="label-energyToday">-- kWh</div>
+                <div class="stat-label" id="label-energyToday">Geração Hoje</div>
+                <div id="energyYesterdayLabel" class="text-muted mt-1" style="font-size:0.75rem; min-height:1.1em;" aria-live="polite"></div>
+                <div id="todayVsYesterdayBadge" class="mt-1" style="min-height:1.4em;" aria-live="polite" aria-atomic="true"></div>
+            </article>
+        </div>
+
+        <div class="col-6 col-md-3" role="listitem">
+            <article class="card stat-card h-100" aria-labelledby="label-peakPower">
+                <i class="fas fa-arrow-up fa-2x mb-3" aria-hidden="true" style="color:var(--primary-color);"></i>
+                <div class="stat-value"
+                     id="peakPower"
+                     aria-live="polite"
+                     aria-atomic="true"
+                     aria-describedby="label-peakPower">-- W</div>
+                <div id="peakEnergy" class="fw-semibold" style="font-size:1rem; min-height:1.2em; color:var(--primary-color);" aria-live="polite">-- kWh</div>
+                <div class="stat-label" id="label-peakPower">Pico Hoje</div>
+                <div id="peakPowerTime" class="text-muted mt-1" style="font-size:0.75rem; min-height:1.1em;" aria-live="polite"></div>
+            </article>
+        </div>
+
+        <div class="col-6 col-md-3" role="listitem">
+            <article class="card stat-card h-100" aria-labelledby="label-totalEnergy">
+                <i class="fas fa-chart-line fa-2x mb-3" aria-hidden="true" style="color:var(--info-color);"></i>
+                <div class="stat-value"
+                     id="totalEnergy"
+                     aria-live="polite"
+                     aria-atomic="true"
+                     aria-describedby="label-totalEnergy">-- kWh</div>
+                <div class="stat-label" id="label-totalEnergy">Total Gerado</div>
+            </article>
+        </div>
+    </div>
+
+    <!-- Cards: mês / ano / lifetime -->
+    <div class="row g-2 g-md-3 mt-0 mb-1" role="list" aria-label="Totais de geração acumulados">
+
+        <div class="col-6 col-md-4" role="listitem">
+            <article class="card stat-card h-100" aria-labelledby="label-energyMonth">
+                <i class="fas fa-calendar-alt fa-2x mb-3 text-secondary" aria-hidden="true"></i>
+                <div class="stat-value"
+                     id="energyMonth"
+                     aria-live="polite"
+                     aria-atomic="true"
+                     aria-describedby="label-energyMonth">-- kWh</div>
+                <div class="stat-label" id="label-energyMonth">Geração no Mês</div>
+                <div id="energyMonthPrevYear" class="text-muted mt-1" style="font-size:0.75rem; min-height:1.1em;" aria-live="polite"></div>
+                <div id="monthVsLastYearBadge" class="mt-1" style="min-height:1.4em;" aria-live="polite" aria-atomic="true"></div>
+            </article>
+        </div>
+
+        <div class="col-6 col-md-4" role="listitem">
+            <article class="card stat-card h-100" aria-labelledby="label-energyYear">
+                <i class="fas fa-calendar fa-2x mb-3" aria-hidden="true" style="color:var(--warning-color);"></i>
+                <div class="stat-value"
+                     id="energyYear"
+                     aria-live="polite"
+                     aria-atomic="true"
+                     aria-describedby="label-energyYear">-- kWh</div>
+                <div class="stat-label" id="label-energyYear">Geração no Ano</div>
+            </article>
+        </div>
+
+        <div class="col-12 col-md-4" role="listitem">
+            <article class="card stat-card h-100" aria-labelledby="label-energyLifetime">
+                <i class="fas fa-infinity fa-2x mb-3" aria-hidden="true" style="color:var(--primary-color);"></i>
+                <div class="stat-value"
+                     id="energyLifetime"
+                     aria-live="polite"
+                     aria-atomic="true"
+                     aria-describedby="label-energyLifetime">-- kWh</div>
+                <div class="stat-label" id="label-energyLifetime">Total Acumulado</div>
+            </article>
+        </div>
+    </div>
+</section>
+
+<!-- ── Seção: Gráfico de geração diária ─────────────────────────────────────── -->
+<section aria-labelledby="section-daily-chart-heading" class="row mt-2">
     <div class="col-12 mb-3">
         <div class="card">
             <div class="card-header bg-primary text-white px-2 px-md-3 py-2">
-                <!-- Linha 1: título + navegação de datas -->
                 <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
-                    <h6 class="mb-0 fw-semibold"><i class="fas fa-chart-area"></i> <span class="d-none d-sm-inline">Geração do Dia</span><span class="d-sm-none">Geração</span></h6>
-                    <div class="d-flex align-items-center gap-1">
-                        <button class="btn btn-outline-light btn-sm px-2" id="btnPrevDay" onclick="navigateDay(-1)" disabled title="Dia anterior">
-                            <i class="fas fa-chevron-left"></i>
+                    <h2 id="section-daily-chart-heading" class="mb-0 fw-semibold h6">
+                        <i class="fas fa-chart-area" aria-hidden="true"></i>
+                        <span class="d-none d-sm-inline">Geração do Dia</span>
+                        <span class="d-sm-none">Geração</span>
+                    </h2>
+                    <!-- Navegação por data -->
+                    <div class="d-flex align-items-center gap-1" role="group" aria-label="Navegação por data">
+                        <button class="btn btn-outline-light btn-sm px-2"
+                                id="btnPrevDay"
+                                onclick="navigateDay(-1)"
+                                disabled
+                                aria-label="Ver dia anterior">
+                            <i class="fas fa-chevron-left" aria-hidden="true"></i>
                         </button>
-                        <span id="chartDateLabel" class="fw-semibold" style="font-size:0.8rem;min-width:110px;text-align:center">--</span>
-                        <button class="btn btn-outline-light btn-sm px-2" id="btnNextDay" onclick="navigateDay(1)" disabled title="Próximo dia">
-                            <i class="fas fa-chevron-right"></i>
+                        <span id="chartDateLabel"
+                              class="fw-semibold"
+                              aria-live="polite"
+                              aria-atomic="true"
+                              style="font-size:0.8rem;min-width:110px;text-align:center">--</span>
+                        <button class="btn btn-outline-light btn-sm px-2"
+                                id="btnNextDay"
+                                onclick="navigateDay(1)"
+                                disabled
+                                aria-label="Ver próximo dia">
+                            <i class="fas fa-chevron-right" aria-hidden="true"></i>
                         </button>
                     </div>
-                    <!-- Resolução (compacto) -->
-                    <div class="btn-group btn-group-sm" id="dailyResolutionBtns">
-                        <button type="button" class="btn btn-outline-light btn-sm" onclick="setDailyResolution('hourly')" title="Visão horária">
-                            <i class="fas fa-clock d-sm-none"></i><span class="d-none d-sm-inline">Horas</span>
+                    <!-- Resolução -->
+                    <div class="btn-group btn-group-sm"
+                         id="dailyResolutionBtns"
+                         role="group"
+                         aria-label="Resolução temporal do gráfico">
+                        <button type="button"
+                                class="btn btn-outline-light btn-sm"
+                                onclick="setDailyResolution('hourly')"
+                                aria-label="Exibir dados por hora"
+                                aria-pressed="false"
+                                id="btnResolutionHourly">
+                            <i class="fas fa-clock d-sm-none" aria-hidden="true"></i>
+                            <span class="d-none d-sm-inline">Horas</span>
                         </button>
-                        <button type="button" class="btn btn-light active btn-sm" onclick="setDailyResolution('minutely')" title="Visão minutely">
-                            <i class="fas fa-wave-square d-sm-none"></i><span class="d-none d-sm-inline">Minutos</span>
+                        <button type="button"
+                                class="btn btn-light active btn-sm"
+                                onclick="setDailyResolution('minutely')"
+                                aria-label="Exibir dados por minuto"
+                                aria-pressed="true"
+                                id="btnResolutionMinutely">
+                            <i class="fas fa-wave-square d-sm-none" aria-hidden="true"></i>
+                            <span class="d-none d-sm-inline">Minutos</span>
                         </button>
                     </div>
                 </div>
-                <small id="chartResolution" class="text-white-50 d-none d-md-inline" style="font-size:0.72rem"></small>
+                <small id="chartResolution"
+                       class="text-white-50 d-none d-md-inline"
+                       aria-live="polite"
+                       style="font-size:0.72rem"></small>
             </div>
             <div class="card-body p-2 p-md-3" style="padding-bottom: 6px !important;">
                 <div style="overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;">
                     <div id="dailyChartWrapper" style="position: relative; height: 260px; min-width: 560px;">
-                        <canvas id="dailyChart"></canvas>
+                        <!-- role=img e aria-label tornam o gráfico acessível (1.1.1 A) -->
+                        <canvas id="dailyChart"
+                                role="img"
+                                aria-label="Gráfico de geração de energia do dia selecionado. Dados disponíveis na tabela abaixo."></canvas>
                     </div>
+                </div>
+                <!-- Tabela alternativa ao gráfico para leitores de tela (1.1.1 A) -->
+                <div class="visually-hidden" aria-label="Dados tabulares do gráfico de geração diária">
+                    <table id="dailyChartTable">
+                        <caption>Geração de energia por período do dia</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Horário</th>
+                                <th scope="col">Potência (W)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dailyChartTableBody">
+                            <tr><td colspan="2">Carregando dados...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
-</div>
+</section>
 
-<!-- Balanço energético (medidor) -->
+<!-- ── Seção: Balanço energético (medidor) ────────────────────────────────── -->
+<section aria-labelledby="meter-section-heading">
 <div class="row" id="meterSection" style="display:none">
     <div class="col-12 mb-4">
         <div class="card">
             <div class="card-header bg-info text-white">
-                <h5 class="mb-0"><i class="fas fa-balance-scale"></i> Balanço Energético — Hoje</h5>
+                <h2 id="meter-section-heading" class="mb-0 h5">
+                    <i class="fas fa-balance-scale" aria-hidden="true"></i>
+                    Balanço Energético — Hoje
+                </h2>
             </div>
             <div class="card-body">
                 <div class="row text-center">
                     <div class="col-6 col-md-3 mb-3">
-                        <div class="fw-bold text-success fs-4" id="meterProduced">--</div>
-                        <div class="text-muted small">Produzido (kWh)</div>
+                        <div class="fw-bold fs-4"
+                             id="meterProduced"
+                             style="color:var(--primary-color);"
+                             aria-live="polite"
+                             aria-label="Produzido">--</div>
+                        <div class="text-muted small">
+                            <i class="fas fa-circle" aria-hidden="true" style="color:var(--primary-color);font-size:0.5rem;vertical-align:middle;"></i>
+                            Produzido (kWh)
+                        </div>
                     </div>
                     <div class="col-6 col-md-3 mb-3">
-                        <div class="fw-bold text-primary fs-4" id="meterConsumed">--</div>
-                        <div class="text-muted small">Consumido (kWh)</div>
+                        <div class="fw-bold fs-4"
+                             id="meterConsumed"
+                             style="color:#0051a8;"
+                             aria-live="polite"
+                             aria-label="Consumido">--</div>
+                        <div class="text-muted small">
+                            <i class="fas fa-circle" aria-hidden="true" style="color:#0051a8;font-size:0.5rem;vertical-align:middle;"></i>
+                            Consumido (kWh)
+                        </div>
                     </div>
                     <div class="col-6 col-md-3 mb-3">
-                        <div class="fw-bold text-warning fs-4" id="meterExported">--</div>
-                        <div class="text-muted small">Exportado Rede (kWh)</div>
+                        <div class="fw-bold fs-4"
+                             id="meterExported"
+                             style="color:var(--warning-color);"
+                             aria-live="polite"
+                             aria-label="Exportado para a rede">--</div>
+                        <div class="text-muted small">
+                            <i class="fas fa-circle" aria-hidden="true" style="color:var(--warning-color);font-size:0.5rem;vertical-align:middle;"></i>
+                            Exportado Rede (kWh)
+                        </div>
                     </div>
                     <div class="col-6 col-md-3 mb-3">
-                        <div class="fw-bold text-danger fs-4" id="meterImported">--</div>
-                        <div class="text-muted small">Importado Rede (kWh)</div>
+                        <div class="fw-bold fs-4"
+                             id="meterImported"
+                             style="color:var(--danger-color);"
+                             aria-live="polite"
+                             aria-label="Importado da rede">--</div>
+                        <div class="text-muted small">
+                            <i class="fas fa-circle" aria-hidden="true" style="color:var(--danger-color);font-size:0.5rem;vertical-align:middle;"></i>
+                            Importado Rede (kWh)
+                        </div>
                     </div>
                 </div>
                 <!-- Totais do mês -->
                 <hr>
-                <h6 class="text-muted">Mês atual</h6>
+                <h3 class="text-muted h6">Mês atual</h3>
                 <div class="row text-center">
                     <div class="col-6 col-md-3">
-                        <small class="text-success fw-bold" id="meterMonthProduced">--</small>
+                        <strong id="meterMonthProduced" style="color:var(--primary-color);" aria-live="polite">--</strong>
                         <div class="text-muted" style="font-size:0.75rem">Produzido</div>
                     </div>
                     <div class="col-6 col-md-3">
-                        <small class="text-primary fw-bold" id="meterMonthConsumed">--</small>
+                        <strong id="meterMonthConsumed" style="color:#0051a8;" aria-live="polite">--</strong>
                         <div class="text-muted" style="font-size:0.75rem">Consumido</div>
                     </div>
                     <div class="col-6 col-md-3">
-                        <small class="text-warning fw-bold" id="meterMonthExported">--</small>
+                        <strong id="meterMonthExported" style="color:var(--warning-color);" aria-live="polite">--</strong>
                         <div class="text-muted" style="font-size:0.75rem">Exportado</div>
                     </div>
                     <div class="col-6 col-md-3">
-                        <small class="text-danger fw-bold" id="meterMonthImported">--</small>
+                        <strong id="meterMonthImported" style="color:var(--danger-color);" aria-live="polite">--</strong>
                         <div class="text-muted" style="font-size:0.75rem">Importado</div>
                     </div>
                 </div>
@@ -183,158 +310,284 @@
         </div>
     </div>
 </div>
+</section>
 
-<!-- Performance dos painéis e Inversores por canal -->
-<div class="row g-2 g-md-3">
-    <div class="col-12 col-md-6 mb-2 mb-md-3">
-        <div class="card h-100">
-            <div class="card-header bg-success text-white py-2">
-                <h6 class="mb-0"><i class="fas fa-solar-panel"></i> Performance dos Painéis</h6>
+<!-- ── Seção: Performance dos painéis e Inversores por canal ─────────────── -->
+<section aria-labelledby="section-performance-heading">
+    <h2 id="section-performance-heading" class="visually-hidden">Performance dos inversores e painéis</h2>
+    <div class="row g-2 g-md-3">
+
+        <!-- Tabela de performance dos painéis -->
+        <div class="col-12 col-md-6 mb-2 mb-md-3">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white py-2">
+                    <h3 class="mb-0 h6">
+                        <i class="fas fa-solar-panel" aria-hidden="true"></i>
+                        Performance dos Painéis
+                    </h3>
+                </div>
+                <div class="card-body p-0 p-md-2">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm mb-0"
+                               id="panelsTable"
+                               aria-live="polite"
+                               aria-label="Performance de geração por painel solar">
+                            <caption class="visually-hidden">
+                                Tabela de performance: potência média, pico e total gerado por painel
+                            </caption>
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">Painel</th>
+                                    <th scope="col" class="text-end">Média (W)</th>
+                                    <th scope="col" class="text-end">Pico (W)</th>
+                                    <th scope="col" class="text-end">Total (kWh)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="panelsTableBody">
+                                <tr><td colspan="4" class="text-center py-3">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-            <div class="card-body p-0 p-md-2">
-                <div class="table-responsive">
-                    <table class="table table-hover table-sm mb-0" id="panelsTable">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Painel</th>
-                                <th class="text-end">Média (W)</th>
-                                <th class="text-end">Pico (W)</th>
-                                <th class="text-end">Total (kWh)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="panelsTableBody">
-                            <tr><td colspan="4" class="text-center py-3">Carregando...</td></tr>
-                        </tbody>
-                    </table>
+        </div>
+
+        <!-- Gráfico por inversor -->
+        <div class="col-12 col-md-6 mb-2 mb-md-3">
+            <div class="card h-100">
+                <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center gap-2 py-2">
+                    <h3 class="mb-0 h6">
+                        <i class="fas fa-microchip" aria-hidden="true"></i>
+                        Geração por Inversor
+                    </h3>
+                    <div class="btn-group btn-group-sm"
+                         role="group"
+                         id="inverterPeriodBtns"
+                         aria-label="Período de geração por inversor">
+                        <button type="button" class="btn btn-light active"
+                                onclick="setInverterPeriod('today')"
+                                aria-pressed="true"
+                                id="btnInvToday">Hoje</button>
+                        <button type="button" class="btn btn-outline-light"
+                                onclick="setInverterPeriod('month')"
+                                aria-pressed="false"
+                                id="btnInvMonth">Mês</button>
+                        <button type="button" class="btn btn-outline-light"
+                                onclick="setInverterPeriod('year')"
+                                aria-pressed="false"
+                                id="btnInvYear">Ano</button>
+                        <button type="button" class="btn btn-outline-light"
+                                onclick="setInverterPeriod('lifetime')"
+                                aria-pressed="false"
+                                id="btnInvLifetime">Total</button>
+                    </div>
+                </div>
+                <div class="card-body p-2">
+                    <div style="position:relative; height:280px;">
+                        <canvas id="inverterChart"
+                                role="img"
+                                aria-label="Gráfico de geração de energia por inversor. Dados disponíveis na tabela abaixo."></canvas>
+                    </div>
+                    <hr class="my-2">
+                    <div class="table-responsive" style="max-height:200px; overflow-y:auto;">
+                        <table class="table table-sm table-hover mb-0"
+                               aria-live="polite"
+                               aria-label="Resumo de geração por inversor">
+                            <caption class="visually-hidden">
+                                Geração de energia por inversor e canal: hoje, mês e ano
+                            </caption>
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th scope="col">Inversor</th>
+                                    <th scope="col" class="text-center">Canal</th>
+                                    <th scope="col" class="text-end">Hoje (kWh)</th>
+                                    <th scope="col" class="text-end">Mês (kWh)</th>
+                                    <th scope="col" class="text-end">Ano (kWh)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inverterSummaryBody">
+                                <tr><td colspan="5" class="text-center text-muted">Aguardando dados...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+</section>
 
-    <!-- Gráfico por inversor -->
-    <div class="col-12 col-md-6 mb-2 mb-md-3">
-        <div class="card h-100">
-            <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center gap-2 py-2">
-                <h6 class="mb-0"><i class="fas fa-microchip"></i> Geração por Inversor</h6>
-                <div class="btn-group btn-group-sm" role="group" id="inverterPeriodBtns">
-                    <button type="button" class="btn btn-light active" onclick="setInverterPeriod('today')">Hoje</button>
-                    <button type="button" class="btn btn-outline-light" onclick="setInverterPeriod('month')">Mês</button>
-                    <button type="button" class="btn btn-outline-light" onclick="setInverterPeriod('year')">Ano</button>
-                    <button type="button" class="btn btn-outline-light" onclick="setInverterPeriod('lifetime')">Total</button>
-                </div>
-            </div>
-            <div class="card-body p-2">
-                <div style="position:relative; height:280px;">
-                    <canvas id="inverterChart"></canvas>
-                </div>
-                <hr class="my-2">
-                <div class="table-responsive" style="max-height:200px; overflow-y:auto;">
-                    <table class="table table-sm table-hover mb-0">
-                        <thead class="table-light sticky-top">
-                            <tr>
-                                <th>Inversor</th>
-                                <th class="text-center">Canal</th>
-                                <th class="text-end">Hoje (kWh)</th>
-                                <th class="text-end">Mês (kWh)</th>
-                                <th class="text-end">Ano (kWh)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="inverterSummaryBody">
-                            <tr><td colspan="5" class="text-center text-muted">Aguardando dados...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Email: configuração SMTP + cadastro de destinatários -->
+<!-- ── Seção: Email — Alertas e Relatórios ─────────────────────────────────── -->
+<section aria-labelledby="email-section-heading">
 <div class="row mt-1">
     <div class="col-12 mb-3">
         <div class="card">
-            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center"
-                 style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#emailConfigBody">
-                <h5 class="mb-0"><i class="fas fa-envelope"></i> Email — Alertas e Relatórios</h5>
+            <!-- Cabeçalho colapsável — acessível por teclado (2.1.1 A) -->
+            <button class="card-header bg-dark text-white d-flex justify-content-between align-items-center w-100 text-start border-0"
+                    style="cursor:pointer; border-radius: 0.375rem 0.375rem 0 0;"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#emailConfigBody"
+                    aria-expanded="false"
+                    aria-controls="emailConfigBody"
+                    id="email-section-heading">
+                <span class="h5 mb-0">
+                    <i class="fas fa-envelope" aria-hidden="true"></i>
+                    Email — Alertas e Relatórios
+                </span>
                 <div class="d-flex align-items-center gap-3">
-                    <span id="emailStatusBadge" class="badge bg-secondary">Verificando...</span>
-                    <i class="fas fa-chevron-down text-white-50"></i>
+                    <span id="emailStatusBadge"
+                          class="badge bg-secondary"
+                          aria-live="polite"
+                          aria-atomic="true">Verificando...</span>
+                    <i class="fas fa-chevron-down text-white-50" aria-hidden="true"></i>
                 </div>
-            </div>
+            </button>
+
             <div class="collapse" id="emailConfigBody">
                 <div class="card-body">
 
                     <!-- Configuração SMTP -->
-                    <h6 class="fw-bold text-muted mb-3"><i class="fas fa-cog"></i> Configuração SMTP (Gmail)</h6>
+                    <h3 class="fw-bold text-muted mb-3 h6">
+                        <i class="fas fa-cog" aria-hidden="true"></i>
+                        Configuração <abbr title="Simple Mail Transfer Protocol">SMTP</abbr> (Gmail)
+                    </h3>
                     <div class="row g-3 align-items-end mb-3">
                         <div class="col-md-5">
-                            <label class="form-label fw-semibold">Email remetente (Gmail)</label>
-                            <input type="email" class="form-control" id="cfgSenderEmail" placeholder="seu@gmail.com">
+                            <label class="form-label fw-semibold" for="cfgSenderEmail">
+                                Email remetente (Gmail)
+                            </label>
+                            <input type="email"
+                                   class="form-control"
+                                   id="cfgSenderEmail"
+                                   placeholder="seu@gmail.com"
+                                   autocomplete="email"
+                                   aria-describedby="cfgSenderEmailHelp">
                         </div>
                         <div class="col-md-5">
-                            <label class="form-label fw-semibold">
+                            <label class="form-label fw-semibold" for="cfgSenderPassword">
                                 Senha de app Google
-                                <a href="https://myaccount.google.com/apppasswords" target="_blank"
-                                   class="ms-1 small text-muted"><i class="fas fa-external-link-alt"></i></a>
+                                <a href="https://myaccount.google.com/apppasswords"
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   class="ms-1 small text-muted"
+                                   aria-label="Criar senha de app no Google (abre em nova janela)">
+                                    <i class="fas fa-external-link-alt" aria-hidden="true"></i>
+                                </a>
                             </label>
-                            <input type="password" class="form-control" id="cfgSenderPassword" placeholder="xxxx xxxx xxxx xxxx">
+                            <input type="password"
+                                   class="form-control"
+                                   id="cfgSenderPassword"
+                                   placeholder="xxxx xxxx xxxx xxxx"
+                                   autocomplete="current-password"
+                                   aria-describedby="cfgSenderPasswordHelp">
                         </div>
                         <div class="col-md-2">
-                            <button class="btn btn-primary w-100" onclick="saveEmailConfig()">
-                                <i class="fas fa-save"></i> Salvar
+                            <button class="btn btn-primary w-100"
+                                    onclick="saveEmailConfig()"
+                                    aria-label="Salvar configurações de email">
+                                <i class="fas fa-save" aria-hidden="true"></i>
+                                Salvar
                             </button>
                         </div>
                     </div>
-                    <div class="d-flex gap-2 mb-3">
-                        <button class="btn btn-outline-secondary btn-sm" onclick="sendTestEmail()">
-                            <i class="fas fa-paper-plane"></i> Enviar Teste
+
+                    <div class="d-flex gap-2 mb-3 flex-wrap">
+                        <button class="btn btn-outline-secondary btn-sm"
+                                onclick="sendTestEmail()"
+                                aria-label="Enviar email de teste para verificar configuração">
+                            <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                            Enviar Teste
                         </button>
-                        <button class="btn btn-outline-success btn-sm" onclick="sendDailyReport()">
-                            <i class="fas fa-chart-bar"></i> Enviar Relatório Diário
+                        <button class="btn btn-outline-success btn-sm"
+                                onclick="sendDailyReport()"
+                                aria-label="Enviar relatório diário de geração solar por email">
+                            <i class="fas fa-chart-bar" aria-hidden="true"></i>
+                            Enviar Relatório Diário
                         </button>
                     </div>
-                    <div id="emailFeedback" class="mb-3"></div>
+
+                    <div id="emailFeedback"
+                         class="mb-3"
+                         role="status"
+                         aria-live="polite"
+                         aria-atomic="true"></div>
 
                     <hr>
 
                     <!-- Cadastro de destinatários -->
-                    <h6 class="fw-bold text-muted mb-3"><i class="fas fa-users"></i> Destinatários</h6>
-                    <div class="row g-2 align-items-end mb-3">
-                        <div class="col-md-4">
-                            <input type="text" class="form-control form-control-sm" id="newRecipientName" placeholder="Nome">
-                        </div>
-                        <div class="col-md-4">
-                            <input type="email" class="form-control form-control-sm" id="newRecipientEmail" placeholder="email@exemplo.com">
-                        </div>
-                        <div class="col-md-2 d-flex gap-2 align-items-center">
-                            <div class="form-check form-switch mb-0" title="Alertas">
-                                <input class="form-check-input" type="checkbox" id="newRecipientAlerts" checked>
-                                <label class="form-check-label small" for="newRecipientAlerts">Alertas</label>
+                    <h3 class="fw-bold text-muted mb-3 h6">
+                        <i class="fas fa-users" aria-hidden="true"></i>
+                        Destinatários
+                    </h3>
+                    <fieldset>
+                        <legend class="visually-hidden">Adicionar novo destinatário de email</legend>
+                        <div class="row g-2 align-items-end mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label form-label-sm" for="newRecipientName">Nome</label>
+                                <input type="text"
+                                       class="form-control form-control-sm"
+                                       id="newRecipientName"
+                                       placeholder="Nome do destinatário"
+                                       autocomplete="name">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label form-label-sm" for="newRecipientEmail">Email</label>
+                                <input type="email"
+                                       class="form-control form-control-sm"
+                                       id="newRecipientEmail"
+                                       placeholder="email@exemplo.com"
+                                       autocomplete="email">
+                            </div>
+                            <div class="col-md-2 d-flex gap-2 align-items-center">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           id="newRecipientAlerts"
+                                           checked
+                                           aria-describedby="alertsHelp">
+                                    <label class="form-check-label small" for="newRecipientAlerts">
+                                        Alertas
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-1 d-flex gap-2 align-items-center">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           id="newRecipientReports"
+                                           checked>
+                                    <label class="form-check-label small" for="newRecipientReports">
+                                        Relatórios
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-1">
+                                <button class="btn btn-success btn-sm w-100"
+                                        onclick="addRecipient()"
+                                        aria-label="Adicionar destinatário à lista">
+                                    <i class="fas fa-plus" aria-hidden="true"></i>
+                                    <span class="visually-hidden">Adicionar</span>
+                                </button>
                             </div>
                         </div>
-                        <div class="col-md-1 d-flex gap-2 align-items-center">
-                            <div class="form-check form-switch mb-0" title="Relatórios">
-                                <input class="form-check-input" type="checkbox" id="newRecipientReports" checked>
-                                <label class="form-check-label small" for="newRecipientReports">Relatórios</label>
-                            </div>
-                        </div>
-                        <div class="col-md-1">
-                            <button class="btn btn-success btn-sm w-100" onclick="addRecipient()">
-                                <i class="fas fa-plus"></i>
-                            </button>
-                        </div>
-                    </div>
+                    </fieldset>
 
                     <div class="table-responsive">
-                        <table class="table table-sm table-hover mb-0" id="recipientsTable">
+                        <table class="table table-sm table-hover mb-0"
+                               id="recipientsTable"
+                               aria-live="polite"
+                               aria-label="Lista de destinatários de email">
+                            <caption class="visually-hidden">
+                                Destinatários cadastrados: nome, email, permissão de alertas, relatórios, status e ações
+                            </caption>
                             <thead class="table-light">
                                 <tr>
-                                    <th>Nome</th>
-                                    <th>Email</th>
-                                    <th class="text-center">Alertas</th>
-                                    <th class="text-center">Relatórios</th>
-                                    <th class="text-center">Ativo</th>
-                                    <th class="text-center">Ações</th>
+                                    <th scope="col">Nome</th>
+                                    <th scope="col">Email</th>
+                                    <th scope="col" class="text-center">Alertas</th>
+                                    <th scope="col" class="text-center">Relatórios</th>
+                                    <th scope="col" class="text-center">Ativo</th>
+                                    <th scope="col" class="text-center">Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="recipientsBody">
@@ -343,9 +596,13 @@
                         </table>
                     </div>
 
-                    <div class="mt-3 p-3 bg-light rounded border small text-muted">
-                        <strong><i class="fas fa-info-circle text-primary"></i> Senha de app Gmail:</strong>
-                        Acesse Google → Segurança → Verificação em duas etapas → <strong>Senhas de app</strong>
+                    <div class="mt-3 p-3 bg-light rounded border small text-muted" role="note">
+                        <strong>
+                            <i class="fas fa-info-circle" aria-hidden="true" style="color:#0051a8;"></i>
+                            Senha de app Gmail:
+                        </strong>
+                        Acesse Google → Segurança → Verificação em duas etapas →
+                        <strong>Senhas de app</strong>
                         e crie uma senha para "Monitoramento Solar".
                     </div>
                 </div>
@@ -353,39 +610,63 @@
         </div>
     </div>
 </div>
+</section>
 
-<!-- Alertas do Sistema -->
+<!-- ── Seção: Alertas do Sistema ───────────────────────────────────────────── -->
+<section aria-labelledby="alerts-section-heading">
 <div class="row">
     <div class="col-12 mb-3">
         <div class="card" id="alertsCard">
             <div class="card-header d-flex justify-content-between align-items-center"
-                 id="alertsCardHeader" style="background:#495057;color:white">
-                <h5 class="mb-0">
-                    <i class="fas fa-exclamation-triangle"></i> Alertas do Sistema
-                    <span class="badge bg-danger ms-2" id="alertBadge" style="display:none">0</span>
-                </h5>
+                 id="alertsCardHeader"
+                 style="background:#3d3d3d;color:white">
+                <h2 id="alerts-section-heading" class="mb-0 h5">
+                    <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                    Alertas do Sistema
+                    <span class="badge bg-danger ms-2"
+                          id="alertBadge"
+                          style="display:none"
+                          aria-live="polite"
+                          aria-label="Número de alertas ativos">0</span>
+                </h2>
                 <div class="d-flex align-items-center gap-2">
-                    <div class="btn-group btn-group-sm" role="group">
-                        <button type="button" class="btn btn-light btn-sm" id="btnAlertsToday"
-                                onclick="setAlertsMode(true)">Hoje</button>
-                        <button type="button" class="btn btn-outline-light btn-sm" id="btnAlertsAll"
-                                onclick="setAlertsMode(false)">Todos</button>
+                    <div class="btn-group btn-group-sm"
+                         role="group"
+                         aria-label="Filtro de alertas por período">
+                        <button type="button"
+                                class="btn btn-light btn-sm"
+                                id="btnAlertsToday"
+                                onclick="setAlertsMode(true)"
+                                aria-pressed="true">Hoje</button>
+                        <button type="button"
+                                class="btn btn-outline-light btn-sm"
+                                id="btnAlertsAll"
+                                onclick="setAlertsMode(false)"
+                                aria-pressed="false">Todos</button>
                     </div>
-                    <button class="btn btn-sm btn-outline-light" onclick="updateAlerts()" title="Atualizar">
-                        <i class="fas fa-sync-alt"></i>
+                    <button class="btn btn-sm btn-outline-light"
+                            onclick="updateAlerts()"
+                            aria-label="Atualizar lista de alertas">
+                        <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                        <span class="visually-hidden">Atualizar</span>
                     </button>
                 </div>
             </div>
-            <div class="card-body p-0" id="alertsTableWrapper">
+            <div class="card-body p-0"
+                 id="alertsTableWrapper"
+                 aria-live="polite"
+                 aria-atomic="false">
                 <div class="text-center p-4 text-muted" id="alertsPlaceholder">
-                    <i class="fas fa-spinner fa-spin"></i> Carregando alertas...
+                    <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+                    Carregando alertas...
                 </div>
             </div>
         </div>
     </div>
 </div>
+</section>
 
-<!-- Versão / Changelog -->
+<!-- ── Versão / Changelog ───────────────────────────────────────────────────── -->
 <div class="row mb-4">
     <div class="col-12">
         <div class="card border-0" style="background:transparent">
@@ -394,11 +675,14 @@
                         type="button"
                         data-bs-toggle="collapse"
                         data-bs-target="#changelogCollapse"
+                        aria-expanded="false"
+                        aria-controls="changelogCollapse"
+                        aria-label="Ver histórico de versões do sistema"
                         style="font-size:0.78rem">
-                    <i class="fas fa-code-branch"></i>
+                    <i class="fas fa-code-branch" aria-hidden="true"></i>
                     <span>Sistema de Monitoramento Solar APSystems</span>
-                    <span class="badge rounded-pill" style="background:#e9ecef;color:#6c757d;font-weight:500">v1.4</span>
-                    <i class="fas fa-chevron-down" style="font-size:0.65rem;opacity:.6"></i>
+                    <span class="badge rounded-pill" style="background:#e9ecef;color:#595959;font-weight:500">v1.4</span>
+                    <i class="fas fa-chevron-down" aria-hidden="true" style="font-size:0.65rem;opacity:.6"></i>
                 </button>
                 <div class="collapse mt-2" id="changelogCollapse">
                     <div class="card border-0 shadow-sm" style="font-size:0.82rem">
@@ -526,6 +810,8 @@
                 document.getElementById('currentPower').textContent = `${data.current_power.toFixed(0)} W`;
                 document.getElementById('energyToday').textContent  = `${data.energy_today.toFixed(2)} kWh`;
                 document.getElementById('peakPower').textContent    = `${data.peak_today.toFixed(0)} W`;
+                document.getElementById('peakEnergy').textContent   = `${data.energy_today.toFixed(2)} kWh`;
+                document.getElementById('peakPowerTime').textContent = data.peak_time ? `Pico às ${data.peak_time}` : '';
                 document.getElementById('totalEnergy').textContent  = `${data.energy_total.toFixed(2)} kWh`;
                 const ts = new Date(data.timestamp);
                 document.getElementById('lastUpdate').textContent = `Atualizado: ${ts.toLocaleTimeString('pt-BR')}`;
@@ -556,11 +842,19 @@
         if (_prevDayKwh === 0) { badge.innerHTML = ''; return; }
         const diffPct = ((_todayKwh - _prevDayKwh) / _prevDayKwh) * 100;
         const above   = diffPct >= 0;
+        // Ícone + texto textual (não depende só de cor — WCAG 1.4.1 A)
         const icon    = above ? '▲' : '▼';
-        const color   = above ? '#198754' : '#dc3545';
-        const bg      = above ? 'rgba(25,135,84,0.12)' : 'rgba(220,53,69,0.12)';
+        const label   = above ? 'Acima' : 'Abaixo';
+        // Cores com contraste AAA 7:1 sobre os fundos claros
+        const color   = above ? '#146c2e' : '#b02a37';
+        const bg      = above ? 'rgba(20,108,46,0.10)' : 'rgba(176,42,55,0.10)';
         const sign    = above ? '+' : '';
-        badge.innerHTML = `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;background:${bg};color:${color};font-size:0.70rem;font-weight:600;">${icon} ${sign}${diffPct.toFixed(1)}% vs ontem</span>`;
+        const pct     = `${sign}${diffPct.toFixed(1)}%`;
+        badge.innerHTML = `<span role="text"
+            style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;background:${bg};color:${color};font-size:0.70rem;font-weight:600;"
+            aria-label="${label}: ${pct} em relação a ontem">
+            <span aria-hidden="true">${icon}</span> ${pct} vs ontem
+        </span>`;
     }
 
     // ── Totais mês / ano / lifetime ──────────────────────────────────────────
@@ -589,15 +883,21 @@
                 const prevKwh = +(data.kwh) || 0;
                 el.textContent = `${mName}/${data.year}: ${prevKwh.toFixed(2)} kWh`;
 
-                // Indicador visual vs ano anterior
+                // Indicador visual vs ano anterior (cores AAA + não depende só de cor)
                 if (badge && currentMonthKwh !== null && prevKwh > 0) {
                     const diffPct = ((currentMonthKwh - prevKwh) / prevKwh) * 100;
                     const above   = diffPct >= 0;
                     const icon    = above ? '▲' : '▼';
-                    const color   = above ? '#198754' : '#dc3545';
-                    const bg      = above ? 'rgba(25,135,84,0.12)' : 'rgba(220,53,69,0.12)';
+                    const label   = above ? 'Acima' : 'Abaixo';
+                    const color   = above ? '#146c2e' : '#b02a37';
+                    const bg      = above ? 'rgba(20,108,46,0.10)' : 'rgba(176,42,55,0.10)';
                     const sign    = above ? '+' : '';
-                    badge.innerHTML = `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;background:${bg};color:${color};font-size:0.70rem;font-weight:600;">${icon} ${sign}${diffPct.toFixed(1)}% vs ano ant.</span>`;
+                    const pct     = `${sign}${diffPct.toFixed(1)}%`;
+                    badge.innerHTML = `<span role="text"
+                        style="display:inline-flex;align-items:center;gap:3px;padding:2px 8px;border-radius:20px;background:${bg};color:${color};font-size:0.70rem;font-weight:600;"
+                        aria-label="${label}: ${pct} em relação ao ano anterior">
+                        <span aria-hidden="true">${icon}</span> ${pct} vs ano ant.
+                    </span>`;
                 } else if (badge) {
                     badge.innerHTML = '';
                 }
@@ -657,11 +957,16 @@
     // ── Gráfico diário ────────────────────────────────────────────────────────
     function setDailyResolution(res) {
         dailyResolution = res;
-        document.querySelectorAll('#dailyResolutionBtns button').forEach(btn => {
-            const isTarget = (res === 'minutely' && btn.textContent.trim() === 'Minutos') ||
-                             (res === 'hourly'   && btn.textContent.trim() === 'Horas');
-            btn.className = isTarget ? 'btn btn-light active' : 'btn btn-outline-light';
-        });
+        // Atualiza visual e aria-pressed (WCAG 4.1.2 A)
+        const btnH = document.getElementById('btnResolutionHourly');
+        const btnM = document.getElementById('btnResolutionMinutely');
+        if (res === 'hourly') {
+            if (btnH) { btnH.className = 'btn btn-light active btn-sm'; btnH.setAttribute('aria-pressed', 'true'); }
+            if (btnM) { btnM.className = 'btn btn-outline-light btn-sm'; btnM.setAttribute('aria-pressed', 'false'); }
+        } else {
+            if (btnM) { btnM.className = 'btn btn-light active btn-sm'; btnM.setAttribute('aria-pressed', 'true'); }
+            if (btnH) { btnH.className = 'btn btn-outline-light btn-sm'; btnH.setAttribute('aria-pressed', 'false'); }
+        }
         if (dailyCache[res]) {
             renderDailyChart(dailyCache[res].labels, dailyCache[res].values, dailyCache[res].energy, dailyCache[res].rawEnergy, res);
         } else {
@@ -881,10 +1186,14 @@
     // ── Inversores por canal ──────────────────────────────────────────────────
     function setInverterPeriod(period) {
         inverterPeriod = period;
-        // Atualizar botões ativos
-        document.querySelectorAll('#inverterPeriodBtns button').forEach(btn => {
-            const isActive = btn.textContent.trim().toLowerCase() === { today:'hoje', month:'mês', year:'ano', lifetime:'total' }[period];
+        // Atualizar botões — visual e aria-pressed (WCAG 4.1.2 A)
+        const periodMap = { today: 'btnInvToday', month: 'btnInvMonth', year: 'btnInvYear', lifetime: 'btnInvLifetime' };
+        Object.entries(periodMap).forEach(([p, id]) => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            const isActive = p === period;
             btn.className = isActive ? 'btn btn-light active' : 'btn btn-outline-light';
+            btn.setAttribute('aria-pressed', String(isActive));
         });
         if (inverterData) renderInverterChart(inverterData);
     }
@@ -1106,7 +1415,7 @@
             if (!data.alerts || data.alerts.length === 0) {
                 const msg = alertsTodayOnly ? 'Nenhum alerta detectado hoje' : 'Nenhum alerta registrado';
                 wrapper.innerHTML = `<div class="text-center p-4 text-success">
-                    <i class="fas fa-check-circle fa-2x mb-2 d-block"></i>${msg}</div>`;
+                    <i class="fas fa-check-circle fa-2x mb-2 d-block" aria-hidden="true"></i>${msg}</div>`;
                 return;
             }
 
@@ -1135,7 +1444,7 @@
                     : null;
 
                 html += `<tr class="${rowCls}">
-                    <td><span class="badge bg-${sc.cls}"><i class="fas fa-${sc.icon}"></i> ${sc.label}</span></td>
+                    <td><span class="badge bg-${sc.cls}"><i class="fas fa-${sc.icon}" aria-hidden="true"></i> ${sc.label}</span></td>
                     <td class="small">${dt}</td>
                     <td class="small">${type}</td>
                     <td class="small">${a.message}</td>
@@ -1144,10 +1453,10 @@
                 if (!a.resolved) {
                     html += `<button class="btn btn-outline-success btn-sm py-0 px-1"
                         onclick="resolveAlert(${a.id})" title="Marcar como resolvido">
-                        <i class="fas fa-check"></i></button>`;
+                        <i class="fas fa-check" aria-hidden="true"></i></button>`;
                 } else {
                     html += `<span class="text-success small" title="Resolvido em ${resolvedAt}">
-                        <i class="fas fa-check-circle"></i></span>`;
+                        <i class="fas fa-check-circle" aria-hidden="true"></i></span>`;
                 }
                 html += `</td></tr>`;
             }
@@ -1214,7 +1523,7 @@
                 </td>
                 <td class="text-center">
                     <button class="btn btn-outline-danger btn-sm py-0" onclick="deleteRecipient(${r.id}, '${r.email}')">
-                        <i class="fas fa-trash"></i>
+                        <i class="fas fa-trash" aria-hidden="true"></i>
                     </button>
                 </td>
             </tr>`).join('');
@@ -1236,10 +1545,10 @@
             if (data.status === 'success') {
                 document.getElementById('newRecipientName').value = '';
                 document.getElementById('newRecipientEmail').value = '';
-                _emailFeedback(`<i class="fas fa-check"></i> ${name} &lt;${email}&gt; cadastrado.`, 'success');
+                _emailFeedback(`<i class="fas fa-check" aria-hidden="true"></i> ${name} &lt;${email}&gt; cadastrado.`, 'success');
                 loadRecipients();
             } else {
-                _emailFeedback(`<i class="fas fa-times"></i> ${data.message}`, 'danger');
+                _emailFeedback(`<i class="fas fa-times" aria-hidden="true"></i> ${data.message}`, 'danger');
             }
         } catch (e) { _emailFeedback('Erro ao cadastrar.', 'danger'); }
     }
@@ -1309,34 +1618,34 @@
             });
             const data = await res.json();
             if (data.status === 'success') {
-                _emailFeedback('<i class="fas fa-check"></i> ' + data.message, 'success');
+                _emailFeedback('<i class="fas fa-check" aria-hidden="true"></i> ' + data.message, 'success');
                 document.getElementById('cfgSenderPassword').value = '';
                 loadEmailConfig();
             } else {
-                _emailFeedback('<i class="fas fa-times"></i> ' + data.message, 'danger');
+                _emailFeedback('<i class="fas fa-times" aria-hidden="true"></i> ' + data.message, 'danger');
             }
         } catch (e) { _emailFeedback('Erro ao salvar configuração.', 'danger'); }
     }
 
     async function sendTestEmail() {
-        _emailFeedback('<i class="fas fa-spinner fa-spin"></i> Enviando email de teste...', 'info');
+        _emailFeedback('<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Enviando email de teste...', 'info');
         try {
             const res = await fetch('/api/email/test', { method: 'POST' });
             const data = await res.json();
             const type = data.status === 'success' ? 'success' : 'danger';
             const icon = data.status === 'success' ? 'check' : 'times';
-            _emailFeedback(`<i class="fas fa-${icon}"></i> ${data.message}`, type);
+            _emailFeedback(`<i class="fas fa-${icon}" aria-hidden="true"></i> ${data.message}`, type);
         } catch (e) { _emailFeedback('Erro ao enviar email de teste.', 'danger'); }
     }
 
     async function sendDailyReport() {
-        _emailFeedback('<i class="fas fa-spinner fa-spin"></i> Gerando e enviando relatório...', 'info');
+        _emailFeedback('<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Gerando e enviando relatório...', 'info');
         try {
             const res = await fetch('/api/email/report', { method: 'POST' });
             const data = await res.json();
             const type = data.status === 'success' ? 'success' : 'danger';
             const icon = data.status === 'success' ? 'check' : 'times';
-            _emailFeedback(`<i class="fas fa-${icon}"></i> ${data.message}`, type);
+            _emailFeedback(`<i class="fas fa-${icon}" aria-hidden="true"></i> ${data.message}`, type);
         } catch (e) { _emailFeedback('Erro ao enviar relatório.', 'danger'); }
     }
 

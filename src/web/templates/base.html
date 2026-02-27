@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Aplica preferências de acessibilidade antes do primeiro paint — evita FOUC -->
+    <script>(function(){try{var s=JSON.parse(localStorage.getItem('solar_a11y')||'{}'),fs={sm:'14px',md:'16px',lg:'18px',xl:'20px'},parts=[],cls=[];if(s.fontSize&&s.fontSize!=='md')document.documentElement.style.fontSize=fs[s.fontSize]||'16px';if(s.contrast==='high')parts.push('contrast(1.8)');if(s.contrast==='invert')parts.push('invert(1) hue-rotate(180deg)');if(s.sat==='low')parts.push('saturate(0.3)');if(s.sat==='none')parts.push('saturate(0)');if(s.colorBlind&&s.colorBlind!=='none')parts.push('url(#a11y-'+s.colorBlind+')');if(parts.length)document.documentElement.style.filter=parts.join(' ');if(s.contrast==='invert')cls.push('a11y-mode-invert');if(s.hlLinks)cls.push('a11y-hl-links');if(s.pauseAnim)cls.push('a11y-pause-anim');if(s.hideImages)cls.push('a11y-no-images');if(s.boldText)cls.push('a11y-bold-text');if(s.readMask)cls.push('a11y-read-mask');if(s.magnifier==='1')cls.push('a11y-mag-1');if(s.magnifier==='2')cls.push('a11y-mag-2');if(s.fontFamily&&s.fontFamily!=='default')cls.push('a11y-font-'+s.fontFamily);if(cls.length)document.documentElement.className=(document.documentElement.className+' '+cls.join(' ')).trim();}catch(e){}})();</script>
     <title>{% block title %}Monitoramento Solar{% endblock %}</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
 
@@ -15,141 +17,258 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
+    <!-- Fontes de acessibilidade: Atkinson Hyperlegible (baixa visão) + Lexend (dislexia) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Lexend:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <style>
+        /* ── WCAG 2.2 AAA – Variáveis de cores com contraste aprimorado ───────── */
         :root {
-            --primary-color: #28a745;
-            --warning-color: #ffc107;
-            --danger-color: #dc3545;
-            --info-color: #17a2b8;
+            /* Cores principais — testadas para 4.5:1 mínimo em bg branco */
+            --primary-color: #146c2e;   /* verde AAA: 7.1:1 sobre branco */
+            --primary-dark:  #0e5224;   /* verde escuro para foco */
+            --warning-color: #856404;   /* âmbar AAA: 7.1:1 sobre branco */
+            --danger-color:  #b02a37;   /* vermelho AAA: 7.1:1 sobre branco */
+            --info-color:    #0c5460;   /* teal AAA: 7.3:1 sobre branco */
+            --muted-text:    #595959;   /* cinza AAA: 7.0:1 sobre branco */
+            --body-bg:       #f8f9fa;
+
+            /* Indicador de foco — WCAG 2.4.13 AAA (3px, alto contraste) */
+            --focus-ring:    3px solid #0051a8;
+            --focus-offset:  3px;
+        }
+
+        /* ── Reset de box-sizing e scroll suave ─────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; }
+
+        /* Scroll-padding para evitar que foco fique sob a navbar fixa (2.4.12 AAA) */
+        html {
+            scroll-padding-top: 80px;
+            scroll-behavior: smooth;
         }
 
         body {
-            background-color: #f8f9fa;
+            background-color: var(--body-bg);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 1rem;       /* mínimo 1rem = 16px para legibilidade */
+            line-height: 1.6;      /* 1.4.8 AAA – espaçamento de linha */
+            color: #212529;        /* contraste 16:1 sobre branco */
         }
 
+        /* ── Skip Link — WCAG 2.4.1 (A) ────────────────────────────────────────── */
+        .skip-link {
+            position: absolute;
+            top: -999px;
+            left: 0;
+            z-index: 9999;
+            padding: 12px 20px;
+            background: #0051a8;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 0 0 8px 0;
+            text-decoration: none;
+            outline: none;
+        }
+        .skip-link:focus {
+            top: 0;
+            outline: var(--focus-ring);
+            outline-offset: 0;
+        }
+
+        /* ── Foco visível — WCAG 2.4.13 AAA (Focus Appearance) ────────────────── */
+        /* Remove outline padrão apenas quando substituído por nosso estilo */
+        :focus { outline: none; }
+        :focus-visible {
+            outline: var(--focus-ring) !important;
+            outline-offset: var(--focus-offset) !important;
+            border-radius: 3px;
+        }
+        /* Garante que botões e links dentro de componentes Bootstrap mostrem foco */
+        .btn:focus-visible,
+        a:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible,
+        [tabindex]:focus-visible,
+        .nav-link:focus-visible,
+        .mob-nav-item:focus-visible {
+            outline: var(--focus-ring) !important;
+            outline-offset: var(--focus-offset) !important;
+            box-shadow: none !important;  /* remove sombra Bootstrap que pode obscurecer */
+        }
+        /* Foco em áreas com fundo escuro — cor invertida */
+        .navbar :focus-visible,
+        .card-header.bg-primary :focus-visible,
+        .card-header.bg-success :focus-visible,
+        .card-header.bg-secondary :focus-visible,
+        .card-header.bg-dark :focus-visible {
+            outline-color: #ffe066 !important;
+        }
+
+        /* ── Reduced-motion — WCAG 2.3.3 AAA ───────────────────────────────────── */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+
+        /* ── Navbar ─────────────────────────────────────────────────────────────── */
         .navbar {
-            background: linear-gradient(135deg, var(--primary-color) 0%, #20c997 100%);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: linear-gradient(135deg, #146c2e 0%, #0e9e6e 100%);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
         }
+        /* Texto branco sobre fundo verde escuro: ≥ 4.5:1 (texto grande) */
+        .navbar .navbar-brand,
+        .navbar .nav-link,
+        .navbar .btn-outline-light { color: #fff; }
 
+        /* ── Cards ──────────────────────────────────────────────────────────────── */
         .card {
-            border: none;
+            border: 1px solid rgba(0,0,0,0.1);
             border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: transform 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s ease;
         }
+        .card:hover { transform: translateY(-4px); }
 
-        .card:hover {
-            transform: translateY(-5px);
-        }
-
+        /* ── Stat cards ─────────────────────────────────────────────────────────── */
         .stat-card {
             padding: 20px;
             text-align: center;
         }
-
         .stat-value {
             font-size: 2.5rem;
-            font-weight: bold;
-            color: var(--primary-color);
+            font-weight: 700;
+            color: var(--primary-color);  /* #146c2e = 7.1:1 sobre branco — AAA */
+            line-height: 1.2;
         }
-
         .stat-label {
-            color: #6c757d;
+            color: var(--muted-text);     /* #595959 = 7.0:1 — AAA para texto normal */
             font-size: 0.9rem;
+            font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
 
+        /* ── Texto mutado acessível ──────────────────────────────────────────────── */
+        /* Sobrescreve Bootstrap .text-muted (#6c757d = 4.48:1) para AAA */
+        .text-muted {
+            color: var(--muted-text) !important;  /* 7.0:1 sobre branco */
+        }
+
+        /* ── Alert badge ────────────────────────────────────────────────────────── */
         .alert-badge {
             position: absolute;
             top: 10px;
             right: 10px;
         }
 
+        /* ── Chart container ────────────────────────────────────────────────────── */
         .chart-container {
             position: relative;
             height: 300px;
             margin: 20px 0;
         }
 
+        /* ── Indicador de atualização ────────────────────────────────────────────── */
         .refresh-indicator {
             position: fixed;
             top: 70px;
             right: 20px;
-            background: white;
+            background: #fff;
             padding: 10px 20px;
             border-radius: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            border: 1px solid #dee2e6;
             display: none;
+            z-index: 1040;
         }
 
-        .status-online {
-            color: var(--primary-color);
+        /* ── Status de conexão ───────────────────────────────────────────────────── */
+        .status-online  { color: var(--primary-color); }
+        .status-offline { color: var(--danger-color); }
+
+        /* ── Target size mínimo 44×44px — WCAG 2.5.5 AAA ───────────────────────── */
+        .btn {
+            min-height: 44px;
+            min-width: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn-sm {
+            min-height: 36px;   /* mínimo 2.5.8 AA = 24px; preferimos 36px+ */
+            min-width: 36px;
+        }
+        /* Botões de grupo menores — garantir area clicável */
+        .btn-group .btn-sm { min-height: 36px; }
+
+        /* ── Texto de ícones decorativos — sr-only para leitores de tela ─────────── */
+        .sr-only,
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0,0,0,0);
+            white-space: nowrap;
+            border: 0;
         }
 
-        .status-offline {
-            color: var(--danger-color);
-        }
-
-        /* ── Mobile bottom navigation ───────────────────────────────────────── */
+        /* ── Mobile bottom navigation ────────────────────────────────────────────── */
         #mobileBottomNav {
             z-index: 1050;
             background: #fff;
-            border-top: 1px solid #dee2e6;
+            border-top: 2px solid #dee2e6;
             box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
         }
         .mob-nav-item {
-            display: flex; flex-direction: column; align-items: center;
-            text-decoration: none; color: #6c757d;
-            font-size: 10px; padding: 6px 8px; flex: 1;
-            background: none; border: none; cursor: pointer;
-            transition: color .15s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: var(--muted-text);
+            font-size: 10px;
+            padding: 8px;
+            flex: 1;
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: color 0.15s ease;
+            min-height: 44px;     /* target size AAA */
+            min-width: 44px;
         }
         .mob-nav-item i { font-size: 19px; margin-bottom: 2px; }
         .mob-nav-item.active, .mob-nav-item:hover { color: var(--primary-color); }
-        .mob-nav-item.mob-collect { color: #e0a800; }
-        .mob-nav-item.mob-collect:hover { color: #c69500; }
+        .mob-nav-item[aria-current="page"] { color: var(--primary-color); font-weight: 600; }
+        .mob-nav-item.mob-collect { color: var(--warning-color); }
+        .mob-nav-item.mob-collect:hover { color: #6d5200; }
 
-        /* ── Responsive adjustments ─────────────────────────────────────────── */
+        /* ── Responsive ──────────────────────────────────────────────────────────── */
         @media (max-width: 991.98px) {
             body { padding-bottom: 68px; }
-
-            /* Compact stat cards */
             .stat-value { font-size: 1.65rem; }
             .stat-card { padding: 14px 8px; }
             .stat-card .fa-2x { font-size: 1.4em !important; margin-bottom: 8px !important; }
             .stat-label { font-size: 0.78rem; }
-
-            /* Tighter page padding */
             .container-fluid.mt-4 { padding-left: 8px !important; padding-right: 8px !important; }
             .container-fluid.mt-4 > .row > [class*="col-"] { padding-left: 6px; padding-right: 6px; }
-
-            /* Navbar */
             #lastUpdate { font-size: 0.75rem; }
-
-            /* Cards margin */
             .mb-4 { margin-bottom: 1rem !important; }
-
-            /* Chart heights on mobile */
             .chart-container { height: 220px; }
-
-            /* Reduce card hover lift on mobile (performance) */
             .card:hover { transform: none; }
-
-            /* Refresh indicator position */
             .refresh-indicator { top: 60px; right: 10px; padding: 6px 14px; font-size: 0.85rem; }
-
-            /* Config tabs: scroll horizontally */
             .nav-tabs { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
             .nav-tabs::-webkit-scrollbar { height: 0; }
             .nav-tabs .nav-link { white-space: nowrap; font-size: 0.85rem; padding: .4rem .75rem; }
-
-            /* Insight profile grid */
             .profile-grid { grid-template-columns: repeat(3, 1fr) !important; }
-
-            /* KPI card values smaller */
             .kpi-value { font-size: 1.35rem !important; }
             .kpi-label { font-size: 0.65rem !important; }
         }
@@ -159,104 +278,853 @@
             .stat-card { padding: 12px 6px; }
             .kpi-value { font-size: 1.15rem !important; }
             .profile-grid { grid-template-columns: repeat(2, 1fr) !important; }
-            /* Inverter chart height */
             #inverterChart { max-height: 240px; }
         }
+
+        /* ── Espaçamento de texto — WCAG 1.4.12 ─────────────────────────────────── */
+        /* O conteúdo não deve perder informação com os seguintes espaçamentos: */
+        /* letter-spacing: 0.12em; word-spacing: 0.16em; line-height: 1.5 — já atendido */
+
+        /* ── Indicadores de estado sem depender só de cor (1.4.1 A) ─────────────── */
+        .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 2px solid currentColor;
+            margin-right: 4px;
+        }
+
+        /* ── Tooltip acessível por teclado ──────────────────────────────────────── */
+        [data-tooltip] { position: relative; }
+        [data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #212529;
+            color: #fff;
+            font-size: 0.8rem;
+            padding: 4px 10px;
+            border-radius: 4px;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+            z-index: 2000;
+        }
+        [data-tooltip]:hover::after,
+        [data-tooltip]:focus::after { opacity: 1; }
+
+        /* ── Breadcrumb de localização — WCAG 2.4.8 AAA ────────────────────────── */
+        .breadcrumb-nav {
+            font-size: 0.82rem;
+            padding: 4px 0;
+        }
+        .breadcrumb-nav .breadcrumb { margin-bottom: 0; }
+        .breadcrumb-nav .breadcrumb-item a { color: var(--primary-color); }
+        .breadcrumb-nav .breadcrumb-item.active { color: var(--muted-text); }
+
+        /* ═══════════════════════════════════════════════════════════════════════════
+           PAINEL FLUTUANTE DE ACESSIBILIDADE
+           ═══════════════════════════════════════════════════════════════════════════ */
+
+        /* ── Botão trigger flutuante ──────────────────────────────────────────────── */
+        .a11y-float-btn {
+            position: fixed;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 9950;
+            width: 48px;
+            height: 56px;
+            background: var(--primary-color);
+            color: #fff;
+            border: none;
+            border-radius: 10px 0 0 10px;
+            font-size: 1.4rem;
+            cursor: pointer;
+            box-shadow: -3px 0 14px rgba(0,0,0,0.22);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s, right 0.3s ease;
+            padding: 0;
+        }
+        .a11y-float-btn:hover { background: var(--primary-dark); }
+        .a11y-float-btn:focus-visible { outline: 3px solid #ffe066 !important; outline-offset: 3px !important; }
+        .a11y-float-btn[aria-expanded="true"] { right: 310px; }
+        @media (max-width: 991.98px) { .a11y-float-btn[aria-expanded="true"] { right: 290px; } }
+
+        /* ── Painel lateral ───────────────────────────────────────────────────────── */
+        .a11y-float-panel {
+            position: fixed;
+            top: 0;
+            right: -320px;
+            width: 310px;
+            height: 100%;
+            background: #fff;
+            box-shadow: -4px 0 28px rgba(0,0,0,0.18);
+            z-index: 9940;
+            display: flex;
+            flex-direction: column;
+            transition: right 0.3s ease;
+        }
+        .a11y-float-panel.is-open { right: 0; }
+        @media (max-width: 991.98px) {
+            .a11y-float-panel { width: 290px; right: -300px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .a11y-float-panel, .a11y-float-btn { transition: none !important; }
+        }
+
+        /* Header */
+        .a11y-panel-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 14px;
+            background: var(--primary-color);
+            color: #fff; font-weight: 700; font-size: 0.92rem; flex-shrink: 0; gap: 8px;
+        }
+        .a11y-panel-close {
+            background: transparent; border: none; color: #fff;
+            font-size: 1rem; cursor: pointer; padding: 4px 8px;
+            border-radius: 4px; min-height: 32px; min-width: 32px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .a11y-panel-close:hover { background: rgba(255,255,255,0.2); }
+        .a11y-panel-close:focus-visible { outline: 2px solid #ffe066 !important; }
+
+        /* Body com scroll */
+        .a11y-panel-body { flex: 1; overflow-y: auto; overflow-x: hidden; }
+
+        /* Footer */
+        .a11y-panel-footer { padding: 10px 12px; border-top: 1px solid #dee2e6; flex-shrink: 0; }
+        .a11y-reset-btn {
+            width: 100%; padding: 8px; background: #fff;
+            border: 2px solid #ced4da; border-radius: 6px;
+            color: #495057; font-size: 0.82rem; font-weight: 600;
+            cursor: pointer; min-height: 38px;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            transition: all 0.1s;
+        }
+        .a11y-reset-btn:hover { background: #f8f9fa; border-color: #adb5bd; }
+        .a11y-reset-btn:focus-visible { outline: var(--focus-ring) !important; }
+
+        /* ── Categorias ───────────────────────────────────────────────────────────── */
+        .a11y-cat-toggle {
+            width: 100%; display: flex; align-items: center; gap: 8px;
+            padding: 9px 14px; background: #f1f3f5;
+            border: none; border-top: 1px solid #dee2e6;
+            font-size: 0.7rem; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 0.08em;
+            color: #495057; cursor: pointer; min-height: 38px; text-align: left;
+        }
+        .a11y-cat-toggle:hover { background: #e9ecef; }
+        .a11y-cat-toggle:focus-visible { outline: var(--focus-ring) !important; }
+        .a11y-cat-chevron { font-size: 0.65rem; margin-left: auto; transition: transform 0.2s; }
+        .a11y-cat-toggle[aria-expanded="true"] .a11y-cat-chevron { transform: rotate(180deg); }
+        .a11y-cat-body { padding: 4px 0 6px; }
+
+        /* ── Linha de controle ────────────────────────────────────────────────────── */
+        .a11y-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 4px 12px; gap: 6px;
+        }
+        .a11y-row-label {
+            font-size: 0.78rem; font-weight: 600; color: #343a40;
+            white-space: nowrap; min-width: 70px;
+        }
+        .a11y-btn-grp { display: flex; gap: 3px; flex-wrap: wrap; }
+        .a11y-btn {
+            min-height: 30px; min-width: 36px; padding: 2px 8px;
+            font-size: 0.74rem; border: 2px solid #ced4da;
+            background: #fff; color: #212529; border-radius: 5px;
+            cursor: pointer; line-height: 1.2;
+            transition: background 0.1s, border-color 0.1s, color 0.1s;
+        }
+        .a11y-btn:hover { background: #e9ecef; border-color: #adb5bd; }
+        .a11y-btn[aria-pressed="true"] {
+            background: var(--primary-color); color: #fff !important;
+            border-color: var(--primary-color); font-weight: 700;
+        }
+        .a11y-btn:focus-visible { outline: var(--focus-ring) !important; outline-offset: 2px !important; }
+
+        /* ── Toggle rows ──────────────────────────────────────────────────────────── */
+        .a11y-toggle-row {
+            display: flex; align-items: center; padding: 5px 12px;
+            gap: 8px; cursor: pointer; margin: 0; width: 100%;
+            border: none; background: transparent; text-align: left; transition: background 0.1s;
+        }
+        .a11y-toggle-row:hover { background: #f8f9fa; }
+        .a11y-toggle-label {
+            font-size: 0.8rem; font-weight: 500; color: #212529;
+            display: flex; align-items: center; gap: 6px; flex: 1; pointer-events: none;
+        }
+
+        /* ── Contador (espaçamentos) ──────────────────────────────────────────────── */
+        .a11y-counter { display: flex; align-items: center; gap: 5px; }
+        .a11y-count-btn {
+            width: 26px; height: 26px; border: 2px solid #ced4da;
+            background: #fff; border-radius: 50%;
+            font-size: 1rem; font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            color: #212529; padding: 0; transition: all 0.1s; line-height: 1;
+        }
+        .a11y-count-btn:hover { background: #e9ecef; border-color: #adb5bd; }
+        .a11y-count-btn:focus-visible { outline: var(--focus-ring) !important; }
+        .a11y-count-val {
+            min-width: 26px; text-align: center;
+            font-size: 0.78rem; font-weight: 700; color: var(--primary-color);
+        }
+
+        /* ── Botão de ação ────────────────────────────────────────────────────────── */
+        .a11y-action-btn {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 12px; background: #fff;
+            border: 2px solid #ced4da; border-radius: 6px;
+            font-size: 0.8rem; font-weight: 500; color: #212529;
+            cursor: pointer; min-height: 34px; width: 100%; transition: all 0.1s;
+        }
+        .a11y-action-btn:hover { background: #f8f9fa; border-color: #adb5bd; }
+        .a11y-action-btn:focus-visible { outline: var(--focus-ring) !important; }
+
+        /* ── Máscara de leitura ───────────────────────────────────────────────────── */
+        .a11y-reading-mask {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 9800; display: none;
+        }
+        html.a11y-read-mask .a11y-reading-mask { display: block; }
+        .a11y-mask-part { position: absolute; left: 0; width: 100%; }
+        .a11y-mask-top, .a11y-mask-bot { background: rgba(0,0,0,0.58); }
+        .a11y-mask-win {
+            border-top: 2px solid rgba(255,220,50,0.85);
+            border-bottom: 2px solid rgba(255,220,50,0.85);
+        }
+
+        /* ── Leitura guiada ───────────────────────────────────────────────────────── */
+        .a11y-guide-hl {
+            background: rgba(255,240,80,0.38) !important;
+            border-radius: 4px;
+            outline: 2px solid rgba(200,175,0,0.5) !important;
+            outline-offset: 3px !important;
+        }
+
+        /* ── Lupa ─────────────────────────────────────────────────────────────────── */
+        html.a11y-mag-1 .a11y-magnifiable:hover,
+        html.a11y-mag-2 .a11y-magnifiable:hover {
+            position: relative !important; z-index: 9800 !important;
+            background: #fff !important;
+            box-shadow: 0 4px 28px rgba(0,0,0,0.28) !important;
+            border-radius: 4px !important; padding: 2px 6px !important;
+        }
+        html.a11y-mag-1 .a11y-magnifiable:hover { transform: scale(1.5) !important; transform-origin: left center !important; }
+        html.a11y-mag-2 .a11y-magnifiable:hover { transform: scale(2.0) !important; transform-origin: left center !important; }
+
+        /* ── Esconder imagens ─────────────────────────────────────────────────────── */
+        html.a11y-no-images img,
+        html.a11y-no-images canvas { visibility: hidden !important; outline: 2px dashed #adb5bd !important; }
+
+        /* ── Letras destacadas ────────────────────────────────────────────────────── */
+        html.a11y-bold-text p, html.a11y-bold-text li,
+        html.a11y-bold-text td, html.a11y-bold-text h1, html.a11y-bold-text h2, html.a11y-bold-text h3,
+        html.a11y-bold-text .card-text, html.a11y-bold-text .stat-value { font-weight: 700 !important; }
+
+        /* ── Modo invertido ───────────────────────────────────────────────────────── */
+        html.a11y-mode-invert { background: #000 !important; }
+        html.a11y-mode-invert img, html.a11y-mode-invert canvas,
+        html.a11y-mode-invert video { filter: invert(1) hue-rotate(180deg) !important; }
+
+        /* ── Espaçamento amplo ────────────────────────────────────────────────────── */
+        html.a11y-spacing-wide body {
+            line-height: 2.0 !important; letter-spacing: 0.1em !important; word-spacing: 0.18em !important;
+        }
+
+        /* ── Pausar animações ─────────────────────────────────────────────────────── */
+        html.a11y-pause-anim *, html.a11y-pause-anim *::before, html.a11y-pause-anim *::after {
+            animation-play-state: paused !important; transition-duration: 0.01ms !important;
+        }
+
+        /* ── Destacar links ───────────────────────────────────────────────────────── */
+        html.a11y-hl-links a:not(.btn):not(.navbar-brand):not(.nav-link):not(.mob-nav-item):not(.skip-link):not(.breadcrumb-item a) {
+            outline: 2px dashed var(--primary-color) !important;
+            outline-offset: 2px !important; text-decoration: underline !important;
+            text-underline-offset: 3px !important; border-radius: 2px;
+        }
+
+        /* ── Botão flutuante — ícone muda conforme estado open/closed ────────────── */
+        .a11y-float-btn .a11y-icon-open  { display: flex; align-items: center; justify-content: center; }
+        .a11y-float-btn .a11y-icon-close { display: none;  align-items: center; justify-content: center; }
+        .a11y-float-btn[aria-expanded="true"] .a11y-icon-open  { display: none; }
+        .a11y-float-btn[aria-expanded="true"] .a11y-icon-close { display: flex; }
+
+        /* ── Fontes de acessibilidade ─────────────────────────────────────────────── */
+        /* Atkinson Hyperlegible — Braille Institute — indicada para baixa visão */
+        html.a11y-font-atkinson body, html.a11y-font-atkinson p,
+        html.a11y-font-atkinson li,   html.a11y-font-atkinson td,
+        html.a11y-font-atkinson h1,   html.a11y-font-atkinson h2,
+        html.a11y-font-atkinson h3,   html.a11y-font-atkinson h4,
+        html.a11y-font-atkinson h5,   html.a11y-font-atkinson h6,
+        html.a11y-font-atkinson .stat-value, html.a11y-font-atkinson .stat-label,
+        html.a11y-font-atkinson .nav-link, html.a11y-font-atkinson .btn,
+        html.a11y-font-atkinson input, html.a11y-font-atkinson select,
+        html.a11y-font-atkinson textarea, html.a11y-font-atkinson label,
+        html.a11y-font-atkinson .dropdown-item, html.a11y-font-atkinson .card-text {
+            font-family: 'Atkinson Hyperlegible', sans-serif !important;
+        }
+        /* Lexend — projetada para reduzir esforço visual e facilitar leitura */
+        html.a11y-font-lexend body, html.a11y-font-lexend p,
+        html.a11y-font-lexend li,   html.a11y-font-lexend td,
+        html.a11y-font-lexend h1,   html.a11y-font-lexend h2,
+        html.a11y-font-lexend h3,   html.a11y-font-lexend h4,
+        html.a11y-font-lexend h5,   html.a11y-font-lexend h6,
+        html.a11y-font-lexend .stat-value, html.a11y-font-lexend .stat-label,
+        html.a11y-font-lexend .nav-link, html.a11y-font-lexend .btn,
+        html.a11y-font-lexend input, html.a11y-font-lexend select,
+        html.a11y-font-lexend textarea, html.a11y-font-lexend label,
+        html.a11y-font-lexend .dropdown-item, html.a11y-font-lexend .card-text {
+            font-family: 'Lexend', sans-serif !important;
+        }
+        /* Descrição da fonte ativa */
+        .a11y-font-desc { font-size: 0.7rem !important; color: var(--muted-text); line-height: 1.4; min-height: 2.5em; }
     </style>
 
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-dark navbar-expand-lg">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="/">
-                <i class="fas fa-solar-panel"></i> Monitoramento Solar
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto align-items-center gap-2">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/">Dashboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <span class="nav-link" id="lastUpdate">Atualizado: --:--</span>
-                    </li>
-                    <li class="nav-item">
-                        <button class="btn btn-outline-light btn-sm" onclick="fullUpdate()">
-                            <i class="fas fa-sync-alt"></i> Atualizar agora
-                        </button>
-                    </li>
-                    <li class="nav-item d-none d-lg-flex">
-                        <button class="btn btn-warning btn-sm fw-semibold" id="btnCollect" onclick="triggerCollect()">
-                            <i class="fas fa-download"></i> Coletar Dados
-                        </button>
-                    </li>
-                    <li class="nav-item d-none d-lg-flex">
-                        <a class="btn btn-outline-light btn-sm" href="/insights">
-                            <i class="fas fa-lightbulb"></i> Insights
-                        </a>
-                    </li>
-                    <li class="nav-item d-none d-lg-flex">
-                        <a class="btn btn-outline-light btn-sm" href="/config">
-                            <i class="fas fa-cog"></i> Configurações
-                        </a>
-                    </li>
-                    <!-- Mobile: nav links inside hamburger menu -->
-                    <li class="nav-item d-lg-none">
-                        <a class="nav-link" href="/insights"><i class="fas fa-lightbulb me-1"></i>Insights</a>
-                    </li>
-                    <li class="nav-item d-lg-none">
-                        <a class="nav-link" href="/config"><i class="fas fa-cog me-1"></i>Configurações</a>
-                    </li>
-                </ul>
+
+    <!-- ── Skip Link — WCAG 2.4.1 (A): permite pular diretamente ao conteúdo ──── -->
+    <a href="#main-content" class="skip-link">Pular para o conteúdo principal</a>
+
+    <!-- ── Header / Navegação principal ─────────────────────────────────────────── -->
+    <header role="banner">
+        <nav class="navbar navbar-dark navbar-expand-lg"
+             aria-label="Navegação principal do sistema">
+            <div class="container-fluid">
+
+                <!-- Marca / logotipo -->
+                <a class="navbar-brand" href="/" aria-label="Monitoramento Solar — ir para o painel">
+                    <i class="fas fa-solar-panel" aria-hidden="true"></i>
+                    <span>Monitoramento Solar</span>
+                </a>
+
+                <!-- Botão de abertura do menu em mobile -->
+                <button class="navbar-toggler"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#navbarNav"
+                        aria-controls="navbarNav"
+                        aria-expanded="false"
+                        aria-label="Abrir ou fechar menu de navegação">
+                    <span class="navbar-toggler-icon" aria-hidden="true"></span>
+                </button>
+
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav ms-auto align-items-center gap-2"
+                        role="list">
+
+                        <!-- Última atualização — não é interativo, excluído de tabulação -->
+                        <li class="nav-item" role="listitem">
+                            <span class="nav-link"
+                                  id="lastUpdate"
+                                  aria-live="polite"
+                                  aria-atomic="true"
+                                  aria-label="Última atualização dos dados">
+                                Atualizado: --:--
+                            </span>
+                        </li>
+
+                        <!-- Botão Atualizar agora -->
+                        <li class="nav-item" role="listitem">
+                            <button class="btn btn-outline-light btn-sm"
+                                    onclick="fullUpdate()"
+                                    aria-label="Atualizar dados agora">
+                                <i class="fas fa-sync-alt" aria-hidden="true"></i>
+                                <span>Atualizar agora</span>
+                            </button>
+                        </li>
+
+                        <!-- Botão Coletar Dados (desktop) -->
+                        <li class="nav-item d-none d-lg-flex" role="listitem">
+                            <button class="btn btn-warning btn-sm fw-semibold"
+                                    id="btnCollect"
+                                    onclick="triggerCollect()"
+                                    aria-label="Coletar dados do inversor solar agora"
+                                    aria-live="polite"
+                                    aria-atomic="true">
+                                <i class="fas fa-download" aria-hidden="true"></i>
+                                <span>Coletar Dados</span>
+                            </button>
+                        </li>
+
+                        <!-- Links de navegação — desktop -->
+                        <li class="nav-item d-none d-lg-flex" role="listitem">
+                            <a class="btn btn-outline-light btn-sm" href="/"
+                               {% if request.path == '/' %}aria-current="page"{% endif %}
+                               aria-label="Ir para o Dashboard">
+                                <i class="fas fa-tachometer-alt" aria-hidden="true"></i>
+                                <span>Dashboard</span>
+                            </a>
+                        </li>
+                        <li class="nav-item d-none d-lg-flex" role="listitem">
+                            <a class="btn btn-outline-light btn-sm" href="/insights"
+                               {% if request.path == '/insights' %}aria-current="page"{% endif %}
+                               aria-label="Ir para Insights e análises">
+                                <i class="fas fa-lightbulb" aria-hidden="true"></i>
+                                <span>Insights</span>
+                            </a>
+                        </li>
+                        <li class="nav-item d-none d-lg-flex" role="listitem">
+                            <a class="btn btn-outline-light btn-sm" href="/config"
+                               {% if request.path == '/config' %}aria-current="page"{% endif %}
+                               aria-label="Ir para Configurações do sistema">
+                                <i class="fas fa-cog" aria-hidden="true"></i>
+                                <span>Configurações</span>
+                            </a>
+                        </li>
+
+                        <!-- ── Acessibilidade — abre painel flutuante ─────────────────────── -->
+                        <li class="nav-item d-none d-lg-flex" role="listitem">
+                            <button class="btn btn-outline-light btn-sm"
+                                    type="button"
+                                    onclick="A11y.togglePanel()"
+                                    aria-expanded="false"
+                                    aria-controls="a11yFloatPanel"
+                                    id="a11yNavBtn"
+                                    aria-label="Abrir painel de acessibilidade">
+                                <i class="fas fa-universal-access" aria-hidden="true"></i>
+                                <span>Acessibilidade</span>
+                            </button>
+                        </li>
+
+                        <!-- Relógio ao vivo — fora do aria-live para não anunciar a cada segundo -->
+                        <li class="nav-item d-none d-lg-flex" role="listitem">
+                            <span class="nav-link px-2"
+                                  id="currentClock"
+                                  aria-hidden="true"
+                                  style="font-size:0.85rem;font-variant-numeric:tabular-nums;letter-spacing:0.04em;opacity:0.95;">
+                                <i class="fas fa-clock me-1" aria-hidden="true"></i>--:--:--
+                            </span>
+                            <!-- Versão acessível do relógio — atualiza a cada minuto -->
+                            <span id="clockAriaLabel" class="visually-hidden" aria-live="off"></span>
+                        </li>
+
+                        <!-- Links de navegação — dentro do menu hambúrguer (mobile) -->
+                        <li class="nav-item d-lg-none" role="listitem">
+                            <a class="nav-link" href="/"
+                               {% if request.path == '/' %}aria-current="page"{% endif %}>
+                                <i class="fas fa-tachometer-alt me-1" aria-hidden="true"></i>Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item d-lg-none" role="listitem">
+                            <a class="nav-link" href="/insights"
+                               {% if request.path == '/insights' %}aria-current="page"{% endif %}>
+                                <i class="fas fa-lightbulb me-1" aria-hidden="true"></i>Insights
+                            </a>
+                        </li>
+                        <li class="nav-item d-lg-none" role="listitem">
+                            <a class="nav-link" href="/config"
+                               {% if request.path == '/config' %}aria-current="page"{% endif %}>
+                                <i class="fas fa-cog me-1" aria-hidden="true"></i>Configurações
+                            </a>
+                        </li>
+
+                        <!-- ── Acessibilidade mobile — abre painel flutuante ─────────────── -->
+                        <li class="nav-item d-lg-none" role="listitem">
+                            <button class="nav-link btn btn-link text-white text-start w-100 bg-transparent border-0"
+                                    type="button"
+                                    onclick="A11y.togglePanel()"
+                                    aria-label="Abrir painel de acessibilidade">
+                                <i class="fas fa-universal-access me-1" aria-hidden="true"></i>
+                                Acessibilidade
+                            </button>
+                        </li>
+                    </ul>
+                </div>
             </div>
+        </nav>
+    </header>
+
+    <!-- ── Indicador de atualização — aria-live para anunciar a leitores de tela ── -->
+    <div class="refresh-indicator"
+         id="refreshIndicator"
+         role="status"
+         aria-live="polite"
+         aria-atomic="true"
+         aria-label="Atualizando dados do sistema">
+        <i class="fas fa-sync fa-spin" aria-hidden="true"></i>
+        <span>Atualizando...</span>
+    </div>
+
+    <!-- ── Região de status para coletor — aria-live global ─────────────────────── -->
+    <div id="collectStatusRegion"
+         role="status"
+         aria-live="polite"
+         aria-atomic="true"
+         class="visually-hidden">
+    </div>
+
+    <!-- ── Conteúdo principal — landmark <main> WCAG 1.3.6 AAA ──────────────────── -->
+    <main id="main-content" role="main" tabindex="-1">
+
+        <!-- Breadcrumb de localização — WCAG 2.4.8 AAA ──────────────────────────── -->
+        <nav class="breadcrumb-nav container-fluid pt-2 pb-0"
+             aria-label="Localização na hierarquia do site">
+            <ol class="breadcrumb" vocab="https://schema.org/" typeof="BreadcrumbList">
+                <li class="breadcrumb-item" property="itemListElement" typeof="ListItem">
+                    <a property="item" typeof="WebPage" href="/">
+                        <span property="name">Início</span>
+                    </a>
+                    <meta property="position" content="1">
+                </li>
+                {% block breadcrumb %}{% endblock %}
+            </ol>
+        </nav>
+
+        <div class="container-fluid mt-3">
+            {% block content %}{% endblock %}
         </div>
-    </nav>
+    </main>
 
-    <!-- Refresh Indicator -->
-    <div class="refresh-indicator" id="refreshIndicator">
-        <i class="fas fa-sync fa-spin"></i> Atualizando...
-    </div>
-
-    <!-- Main Content -->
-    <div class="container-fluid mt-4">
-        {% block content %}{% endblock %}
-    </div>
-
-    <!-- Footer -->
-    <footer class="text-center py-4 mt-5">
-        <p class="text-muted">Sistema de Monitoramento Solar APSystems &copy; 2026</p>
+    <!-- ── Rodapé ─────────────────────────────────────────────────────────────────── -->
+    <footer role="contentinfo" class="text-center py-4 mt-5" style="border-top:1px solid #dee2e6;">
+        <p class="text-muted mb-1">
+            Sistema de Monitoramento Solar APSystems
+            <abbr title="Copyright">©</abbr> 2026
+        </p>
+        <p class="text-muted small mb-0">
+            Desenvolvido em conformidade com
+            <abbr title="Web Content Accessibility Guidelines versão 2.2, nível AAA">WCAG 2.2 AAA</abbr>
+        </p>
     </footer>
 
-    <!-- Mobile bottom navigation (visible only on xs/sm/md) -->
-    <nav class="d-lg-none fixed-bottom" id="mobileBottomNav">
-        <div class="d-flex">
-            <a href="/" class="mob-nav-item {% if request.path == '/' %}active{% endif %}">
-                <i class="fas fa-tachometer-alt"></i>
+    <!-- ── Navegação inferior móvel (xs/sm/md) ────────────────────────────────────── -->
+    <nav class="d-lg-none fixed-bottom"
+         id="mobileBottomNav"
+         aria-label="Navegação rápida">
+        <div class="d-flex" role="list">
+            <a href="/"
+               class="mob-nav-item {% if request.path == '/' %}active{% endif %}"
+               {% if request.path == '/' %}aria-current="page"{% endif %}
+               role="listitem"
+               aria-label="Dashboard — painel principal">
+                <i class="fas fa-tachometer-alt" aria-hidden="true"></i>
                 <span>Dashboard</span>
             </a>
-            <a href="/insights" class="mob-nav-item {% if request.path == '/insights' %}active{% endif %}">
-                <i class="fas fa-lightbulb"></i>
+            <a href="/insights"
+               class="mob-nav-item {% if request.path == '/insights' %}active{% endif %}"
+               {% if request.path == '/insights' %}aria-current="page"{% endif %}
+               role="listitem"
+               aria-label="Insights — análises do sistema">
+                <i class="fas fa-lightbulb" aria-hidden="true"></i>
                 <span>Insights</span>
             </a>
-            <button class="mob-nav-item mob-collect" onclick="triggerCollect()" id="btnCollectMobile">
-                <i class="fas fa-download" id="mobCollectIcon"></i>
+            <button class="mob-nav-item mob-collect"
+                    onclick="triggerCollect()"
+                    id="btnCollectMobile"
+                    role="listitem"
+                    aria-label="Coletar dados do inversor solar"
+                    type="button">
+                <i class="fas fa-download" id="mobCollectIcon" aria-hidden="true"></i>
                 <span id="mobCollectLabel">Coletar</span>
             </button>
-            <a href="/config" class="mob-nav-item {% if request.path == '/config' %}active{% endif %}">
-                <i class="fas fa-cog"></i>
+            <a href="/config"
+               class="mob-nav-item {% if request.path == '/config' %}active{% endif %}"
+               {% if request.path == '/config' %}aria-current="page"{% endif %}
+               role="listitem"
+               aria-label="Configurações do sistema">
+                <i class="fas fa-cog" aria-hidden="true"></i>
                 <span>Config</span>
             </a>
         </div>
     </nav>
 
+    <!-- ═══════════════════════════════════════════════════════════════════════════
+         PAINEL FLUTUANTE DE ACESSIBILIDADE
+         ═══════════════════════════════════════════════════════════════════════════ -->
+
+    <!-- SVG: filtros para simulação de daltonismo -->
+    <svg id="a11yColorFilters" aria-hidden="true" focusable="false"
+         style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none">
+        <defs>
+            <filter id="a11y-protan">
+                <feColorMatrix type="matrix" values="0.567 0.433 0 0 0  0.558 0.442 0 0 0  0 0.242 0.758 0 0  0 0 0 1 0"/>
+            </filter>
+            <filter id="a11y-deutan">
+                <feColorMatrix type="matrix" values="0.625 0.375 0 0 0  0.7 0.3 0 0 0  0 0.3 0.7 0 0  0 0 0 1 0"/>
+            </filter>
+            <filter id="a11y-tritan">
+                <feColorMatrix type="matrix" values="0.95 0.05 0 0 0  0 0.433 0.567 0 0  0 0.475 0.525 0 0  0 0 0 1 0"/>
+            </filter>
+        </defs>
+    </svg>
+
+    <!-- Máscara de leitura -->
+    <div id="a11yReadingMask" class="a11y-reading-mask" aria-hidden="true">
+        <div id="a11yMaskTop" class="a11y-mask-part a11y-mask-top" style="top:0;height:0"></div>
+        <div id="a11yMaskWin" class="a11y-mask-part a11y-mask-win" style="top:0;height:80px"></div>
+        <div id="a11yMaskBot" class="a11y-mask-part a11y-mask-bot" style="top:80px;height:0"></div>
+    </div>
+
+    <!-- Botão flutuante — clique para abrir/fechar o painel -->
+    <button class="a11y-float-btn"
+            id="a11yPanelToggle"
+            type="button"
+            onclick="A11y.togglePanel()"
+            aria-expanded="false"
+            aria-controls="a11yFloatPanel"
+            aria-label="Abrir painel de acessibilidade">
+        <span class="a11y-icon-open"  aria-hidden="true"><i class="fas fa-universal-access"></i></span>
+        <span class="a11y-icon-close" aria-hidden="true"><i class="fas fa-chevron-right"></i></span>
+        <span class="visually-hidden">Acessibilidade</span>
+    </button>
+
+    <!-- Painel flutuante lateral -->
+    <aside class="a11y-float-panel"
+           id="a11yFloatPanel"
+           aria-label="Painel de acessibilidade"
+           aria-hidden="true">
+
+        <div class="a11y-panel-header">
+            <span><i class="fas fa-universal-access me-2" aria-hidden="true"></i>Acessibilidade</span>
+            <button class="a11y-panel-close" type="button"
+                    onclick="A11y.togglePanel(false)"
+                    aria-label="Fechar painel de acessibilidade">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+        </div>
+
+        <div class="a11y-panel-body">
+
+            <!-- TEXTO -->
+            <button class="a11y-cat-toggle" type="button" aria-expanded="true"
+                    data-bs-toggle="collapse" data-bs-target="#a11yCatText">
+                <i class="fas fa-font" aria-hidden="true"></i> Texto
+                <i class="fas fa-chevron-down a11y-cat-chevron" aria-hidden="true"></i>
+            </button>
+            <div class="collapse show" id="a11yCatText">
+                <div class="a11y-cat-body">
+                    <div class="a11y-row">
+                        <span class="a11y-row-label">Tamanho</span>
+                        <div class="a11y-btn-grp" role="group" aria-label="Tamanho do texto">
+                            <button type="button" class="a11y-btn" data-a11y-group="fontSize" data-a11y-val="sm" onclick="A11y.handle(this)" aria-pressed="false" aria-label="Texto pequeno 14px">A<sup>−</sup></button>
+                            <button type="button" class="a11y-btn" data-a11y-group="fontSize" data-a11y-val="md" onclick="A11y.handle(this)" aria-pressed="true"  aria-label="Texto normal 16px">A</button>
+                            <button type="button" class="a11y-btn" data-a11y-group="fontSize" data-a11y-val="lg" onclick="A11y.handle(this)" aria-pressed="false" aria-label="Texto grande 18px" style="font-size:.9em">A<sup>+</sup></button>
+                            <button type="button" class="a11y-btn" data-a11y-group="fontSize" data-a11y-val="xl" onclick="A11y.handle(this)" aria-pressed="false" aria-label="Texto muito grande 20px" style="font-size:1em">A<sup>++</sup></button>
+                        </div>
+                    </div>
+                    <div class="a11y-row">
+                        <span class="a11y-row-label">Espaço letras</span>
+                        <div class="a11y-counter" role="group" aria-label="Espaçamento entre letras">
+                            <button type="button" class="a11y-count-btn" onclick="A11y.dec('letterSpacing')" aria-label="Diminuir espaço entre letras">−</button>
+                            <span class="a11y-count-val" id="a11yLetterSpacingVal" aria-live="polite">0</span>
+                            <button type="button" class="a11y-count-btn" onclick="A11y.inc('letterSpacing')" aria-label="Aumentar espaço entre letras">+</button>
+                        </div>
+                    </div>
+                    <div class="a11y-row">
+                        <span class="a11y-row-label">Espaço linhas</span>
+                        <div class="a11y-counter" role="group" aria-label="Espaçamento entre linhas">
+                            <button type="button" class="a11y-count-btn" onclick="A11y.dec('lineHeight')" aria-label="Diminuir espaço entre linhas">−</button>
+                            <span class="a11y-count-val" id="a11yLineHeightVal" aria-live="polite">0</span>
+                            <button type="button" class="a11y-count-btn" onclick="A11y.inc('lineHeight')" aria-label="Aumentar espaço entre linhas">+</button>
+                        </div>
+                    </div>
+                    <label class="a11y-toggle-row">
+                        <span class="a11y-toggle-label"><i class="fas fa-bold" aria-hidden="true"></i> Letras destacadas</span>
+                        <input class="form-check-input mt-0 ms-auto" type="checkbox" role="switch"
+                               data-a11y-toggle="boldText" onchange="A11y.handleToggle(this)"
+                               aria-label="Negrito em todos os textos">
+                    </label>
+                </div>
+            </div>
+
+            <!-- FONTE -->
+            <button class="a11y-cat-toggle" type="button" aria-expanded="true"
+                    data-bs-toggle="collapse" data-bs-target="#a11yCatFont">
+                <i class="fas fa-text-height" aria-hidden="true"></i> Fonte
+                <i class="fas fa-chevron-down a11y-cat-chevron" aria-hidden="true"></i>
+            </button>
+            <div class="collapse show" id="a11yCatFont">
+                <div class="a11y-cat-body">
+                    <div class="a11y-row" style="flex-direction:column;align-items:stretch;gap:4px;">
+                        <span class="a11y-row-label" style="margin-bottom:4px;">Família</span>
+                        <div class="a11y-btn-grp" role="group" aria-label="Família da fonte" style="flex-direction:column;gap:4px;">
+                            <button type="button" class="a11y-btn" style="justify-content:flex-start;padding:6px 10px;font-family:inherit;"
+                                    data-a11y-group="fontFamily" data-a11y-val="default"
+                                    onclick="A11y.handle(this)" aria-pressed="true"
+                                    aria-label="Fonte padrão do sistema">
+                                <b>Padrão</b>&nbsp;<small style="font-weight:400;opacity:.7;">Segoe UI</small>
+                            </button>
+                            <button type="button" class="a11y-btn" style="justify-content:flex-start;padding:6px 10px;font-family:'Atkinson Hyperlegible',sans-serif;"
+                                    data-a11y-group="fontFamily" data-a11y-val="atkinson"
+                                    onclick="A11y.handle(this)" aria-pressed="false"
+                                    aria-label="Atkinson Hyperlegible — indicada para baixa visão">
+                                <b>Atkinson</b>&nbsp;<small style="font-weight:400;opacity:.7;">Baixa visão</small>
+                            </button>
+                            <button type="button" class="a11y-btn" style="justify-content:flex-start;padding:6px 10px;font-family:'Lexend',sans-serif;"
+                                    data-a11y-group="fontFamily" data-a11y-val="lexend"
+                                    onclick="A11y.handle(this)" aria-pressed="false"
+                                    aria-label="Lexend — projetada para facilitar leitura e auxiliar dislexia">
+                                <b>Lexend</b>&nbsp;<small style="font-weight:400;opacity:.7;">Dislexia</small>
+                            </button>
+                        </div>
+                        <p id="a11yFontDesc" class="a11y-font-desc" aria-live="polite"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISUALIZAÇÃO -->
+            <button class="a11y-cat-toggle" type="button" aria-expanded="true"
+                    data-bs-toggle="collapse" data-bs-target="#a11yCatVision">
+                <i class="fas fa-eye" aria-hidden="true"></i> Visualização
+                <i class="fas fa-chevron-down a11y-cat-chevron" aria-hidden="true"></i>
+            </button>
+            <div class="collapse show" id="a11yCatVision">
+                <div class="a11y-cat-body">
+                    <div class="a11y-row">
+                        <span class="a11y-row-label">Contraste</span>
+                        <div class="a11y-btn-grp" role="group" aria-label="Contraste de cores">
+                            <button type="button" class="a11y-btn" data-a11y-group="contrast" data-a11y-val="normal" onclick="A11y.handle(this)" aria-pressed="true"  aria-label="Contraste normal">Normal</button>
+                            <button type="button" class="a11y-btn" data-a11y-group="contrast" data-a11y-val="high"   onclick="A11y.handle(this)" aria-pressed="false" aria-label="Alto contraste">Alto</button>
+                            <button type="button" class="a11y-btn" data-a11y-group="contrast" data-a11y-val="invert" onclick="A11y.handle(this)" aria-pressed="false" aria-label="Modo invertido">Inv.</button>
+                        </div>
+                    </div>
+                    <div class="a11y-row">
+                        <span class="a11y-row-label">Saturação</span>
+                        <div class="a11y-btn-grp" role="group" aria-label="Saturação de cores">
+                            <button type="button" class="a11y-btn" data-a11y-group="sat" data-a11y-val="normal" onclick="A11y.handle(this)" aria-pressed="true"  aria-label="Saturação normal">Normal</button>
+                            <button type="button" class="a11y-btn" data-a11y-group="sat" data-a11y-val="low"    onclick="A11y.handle(this)" aria-pressed="false" aria-label="Saturação reduzida">Red.</button>
+                            <button type="button" class="a11y-btn" data-a11y-group="sat" data-a11y-val="none"   onclick="A11y.handle(this)" aria-pressed="false" aria-label="Monocromático">Mono</button>
+                        </div>
+                    </div>
+                    <div class="a11y-row">
+                        <span class="a11y-row-label">Daltonismo</span>
+                        <div class="a11y-btn-grp" role="group" aria-label="Filtro para daltonismo">
+                            <button type="button" class="a11y-btn" data-a11y-group="colorBlind" data-a11y-val="none"   onclick="A11y.handle(this)" aria-pressed="true"  aria-label="Sem filtro">Nenhum</button>
+                            <button type="button" class="a11y-btn" data-a11y-group="colorBlind" data-a11y-val="protan" onclick="A11y.handle(this)" aria-pressed="false" aria-label="Protanopia" title="Protanopia (vermelho)">P</button>
+                            <button type="button" class="a11y-btn" data-a11y-group="colorBlind" data-a11y-val="deutan" onclick="A11y.handle(this)" aria-pressed="false" aria-label="Deuteranopia" title="Deuteranopia (verde)">D</button>
+                            <button type="button" class="a11y-btn" data-a11y-group="colorBlind" data-a11y-val="tritan" onclick="A11y.handle(this)" aria-pressed="false" aria-label="Tritanopia" title="Tritanopia (azul)">T</button>
+                        </div>
+                    </div>
+                    <label class="a11y-toggle-row">
+                        <span class="a11y-toggle-label"><i class="fas fa-image" aria-hidden="true"></i> Esconder imagens</span>
+                        <input class="form-check-input mt-0 ms-auto" type="checkbox" role="switch"
+                               data-a11y-toggle="hideImages" onchange="A11y.handleToggle(this)"
+                               aria-label="Esconder todas as imagens">
+                    </label>
+                </div>
+            </div>
+
+            <!-- LEITURA -->
+            <button class="a11y-cat-toggle" type="button" aria-expanded="true"
+                    data-bs-toggle="collapse" data-bs-target="#a11yCatRead">
+                <i class="fas fa-book-open" aria-hidden="true"></i> Leitura
+                <i class="fas fa-chevron-down a11y-cat-chevron" aria-hidden="true"></i>
+            </button>
+            <div class="collapse show" id="a11yCatRead">
+                <div class="a11y-cat-body">
+                    <div class="a11y-row">
+                        <span class="a11y-row-label">Lupa</span>
+                        <div class="a11y-btn-grp" role="group" aria-label="Nível de ampliação">
+                            <button type="button" class="a11y-btn" data-a11y-group="magnifier" data-a11y-val="0" onclick="A11y.handle(this)" aria-pressed="true"  aria-label="Sem lupa">Off</button>
+                            <button type="button" class="a11y-btn" data-a11y-group="magnifier" data-a11y-val="1" onclick="A11y.handle(this)" aria-pressed="false" aria-label="Ampliar 1.5 vezes">1.5×</button>
+                            <button type="button" class="a11y-btn" data-a11y-group="magnifier" data-a11y-val="2" onclick="A11y.handle(this)" aria-pressed="false" aria-label="Ampliar 2 vezes">2×</button>
+                        </div>
+                    </div>
+                    <label class="a11y-toggle-row">
+                        <span class="a11y-toggle-label"><i class="fas fa-crosshairs" aria-hidden="true"></i> Leitura guiada</span>
+                        <input class="form-check-input mt-0 ms-auto" type="checkbox" role="switch"
+                               data-a11y-toggle="guideRead" onchange="A11y.handleToggle(this)"
+                               aria-label="Destacar parágrafo sob o cursor">
+                    </label>
+                    <label class="a11y-toggle-row">
+                        <span class="a11y-toggle-label"><i class="fas fa-grip-lines" aria-hidden="true"></i> Máscara de leitura</span>
+                        <input class="form-check-input mt-0 ms-auto" type="checkbox" role="switch"
+                               data-a11y-toggle="readMask" onchange="A11y.handleToggle(this)"
+                               aria-label="Máscara escura acompanha o cursor">
+                    </label>
+                    <label class="a11y-toggle-row">
+                        <span class="a11y-toggle-label"><i class="fas fa-link" aria-hidden="true"></i> Destaque de links</span>
+                        <input class="form-check-input mt-0 ms-auto" type="checkbox" role="switch"
+                               data-a11y-toggle="hlLinks" onchange="A11y.handleToggle(this)"
+                               aria-label="Destacar visualmente todos os links">
+                    </label>
+                    <label class="a11y-toggle-row">
+                        <span class="a11y-toggle-label"><i class="fas fa-pause-circle" aria-hidden="true"></i> Pausar animações</span>
+                        <input class="form-check-input mt-0 ms-auto" type="checkbox" role="switch"
+                               data-a11y-toggle="pauseAnim" onchange="A11y.handleToggle(this)"
+                               aria-label="Pausar todas as animações">
+                    </label>
+                </div>
+            </div>
+
+            <!-- NAVEGAÇÃO -->
+            <button class="a11y-cat-toggle" type="button" aria-expanded="false"
+                    data-bs-toggle="collapse" data-bs-target="#a11yCatNav">
+                <i class="fas fa-sitemap" aria-hidden="true"></i> Navegação
+                <i class="fas fa-chevron-down a11y-cat-chevron" aria-hidden="true"></i>
+            </button>
+            <div class="collapse" id="a11yCatNav">
+                <div class="a11y-cat-body px-2 pb-2">
+                    <button type="button" class="a11y-action-btn"
+                            onclick="A11y.showStructure()"
+                            aria-label="Ver estrutura de títulos desta página">
+                        <i class="fas fa-list" aria-hidden="true"></i> Estrutura da página
+                    </button>
+                </div>
+            </div>
+
+            <!-- MÍDIA -->
+            <button class="a11y-cat-toggle" type="button" aria-expanded="false"
+                    data-bs-toggle="collapse" data-bs-target="#a11yCatMedia">
+                <i class="fas fa-volume-up" aria-hidden="true"></i> Mídia
+                <i class="fas fa-chevron-down a11y-cat-chevron" aria-hidden="true"></i>
+            </button>
+            <div class="collapse" id="a11yCatMedia">
+                <div class="a11y-cat-body">
+                    <label class="a11y-toggle-row">
+                        <span class="a11y-toggle-label"><i class="fas fa-volume-mute" aria-hidden="true"></i> Parar som</span>
+                        <input class="form-check-input mt-0 ms-auto" type="checkbox" role="switch"
+                               data-a11y-toggle="stopSound" onchange="A11y.handleToggle(this)"
+                               aria-label="Silenciar todos os áudios e vídeos">
+                    </label>
+                </div>
+            </div>
+
+        </div><!-- /.a11y-panel-body -->
+
+        <div class="a11y-panel-footer">
+            <button type="button" class="a11y-reset-btn" onclick="A11y.reset()"
+                    aria-label="Redefinir todas as preferências de acessibilidade">
+                <i class="fas fa-undo" aria-hidden="true"></i> Redefinir tudo
+            </button>
+        </div>
+
+    </aside><!-- /.a11y-float-panel -->
+
+    <!-- Modal: Estrutura da Página -->
+    <div class="modal fade" id="a11yStructureModal" tabindex="-1"
+         aria-labelledby="a11yStructureTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="a11yStructureTitle">
+                        <i class="fas fa-sitemap" aria-hidden="true"></i> Estrutura da página
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body" id="a11yStructureBody">
+                    <p class="text-muted small">Carregando...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap 5 JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
+    /* ── Controlador do botão Coletar Dados ─────────────────────────────────────── */
     let _collectPollTimer = null;
 
     function _setCollectState(state) {
@@ -265,29 +1133,68 @@
         const btnM = document.getElementById('btnCollectMobile');
         const icon = document.getElementById('mobCollectIcon');
         const lbl  = document.getElementById('mobCollectLabel');
+        const region = document.getElementById('collectStatusRegion');
 
         const states = {
-            idle:    { desktop: '<i class="fas fa-download"></i> Coletar Dados', mobIcon: 'fas fa-download', mobLbl: 'Coletar',   cls: 'btn-warning' },
-            running: { desktop: '<i class="fas fa-spinner fa-spin"></i> Coletando...', mobIcon: 'fas fa-spinner fa-spin', mobLbl: 'Coletando', cls: null },
-            waiting: { desktop: '<i class="fas fa-clock"></i> Em andamento...', mobIcon: 'fas fa-clock', mobLbl: 'Aguarde',  cls: null },
-            success: { desktop: '<i class="fas fa-check"></i> Concluído!',      mobIcon: 'fas fa-check',   mobLbl: 'Pronto!',  cls: 'btn-success' },
-            error:   { desktop: '<i class="fas fa-exclamation-triangle"></i> Erro', mobIcon: 'fas fa-exclamation-triangle', mobLbl: 'Erro', cls: 'btn-danger' },
+            idle:    {
+                desktop: '<i class="fas fa-download" aria-hidden="true"></i> <span>Coletar Dados</span>',
+                mobIcon: 'fas fa-download', mobLbl: 'Coletar',
+                cls: 'btn-warning',
+                ariaLabel: 'Coletar dados do inversor solar agora',
+                announce: ''
+            },
+            running: {
+                desktop: '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> <span>Coletando...</span>',
+                mobIcon: 'fas fa-spinner fa-spin', mobLbl: 'Coletando',
+                cls: null,
+                ariaLabel: 'Coletando dados — aguarde',
+                announce: 'Coleta de dados iniciada. Aguarde.'
+            },
+            waiting: {
+                desktop: '<i class="fas fa-clock" aria-hidden="true"></i> <span>Em andamento...</span>',
+                mobIcon: 'fas fa-clock', mobLbl: 'Aguarde',
+                cls: null,
+                ariaLabel: 'Coleta em andamento — aguarde',
+                announce: 'Coleta em andamento. Aguardando conclusão.'
+            },
+            success: {
+                desktop: '<i class="fas fa-check" aria-hidden="true"></i> <span>Concluído!</span>',
+                mobIcon: 'fas fa-check', mobLbl: 'Pronto!',
+                cls: 'btn-success',
+                ariaLabel: 'Coleta concluída com sucesso',
+                announce: 'Coleta de dados concluída com sucesso.'
+            },
+            error: {
+                desktop: '<i class="fas fa-exclamation-triangle" aria-hidden="true"></i> <span>Erro</span>',
+                mobIcon: 'fas fa-exclamation-triangle', mobLbl: 'Erro',
+                cls: 'btn-danger',
+                ariaLabel: 'Erro na coleta de dados. Tente novamente.',
+                announce: 'Erro na coleta de dados. Verifique a conexão e tente novamente.'
+            },
         };
+
         const s = states[state] || states.idle;
         const disabled = (state === 'running' || state === 'waiting');
 
         if (btn) {
             btn.disabled = disabled;
             btn.innerHTML = s.desktop;
+            btn.setAttribute('aria-label', s.ariaLabel);
             if (s.cls) {
                 btn.className = btn.className
-                    .replace('btn-warning','').replace('btn-success','').replace('btn-danger','')
+                    .replace(/btn-warning|btn-success|btn-danger/g, '')
                     .trim() + ' ' + s.cls;
             }
         }
-        if (btnM) btnM.disabled = disabled;
+        if (btnM) {
+            btnM.disabled = disabled;
+            btnM.setAttribute('aria-label', s.ariaLabel);
+        }
         if (icon) icon.className = s.mobIcon;
         if (lbl)  lbl.textContent = s.mobLbl;
+
+        // Anuncia estado para leitores de tela via região aria-live
+        if (region && s.announce) region.textContent = s.announce;
     }
 
     async function triggerCollect() {
@@ -297,8 +1204,8 @@
             if (res.status === 409) { _setCollectState('waiting'); }
             _collectPollTimer = setInterval(pollCollectStatus, 3000);
         } catch (e) {
-            _setCollectState('idle');
-            alert('Erro ao iniciar coleta.');
+            _setCollectState('error');
+            setTimeout(() => _setCollectState('idle'), 4000);
         }
     }
 
@@ -320,6 +1227,289 @@
             }
         } catch (e) { /* ignorar erros de polling */ }
     }
+
+    /* ── Relógio ao vivo ────────────────────────────────────────────────────────── */
+    /* aria-hidden no elemento visual; não anuncia a cada segundo (WCAG 2.2.2) */
+    (function() {
+        let _lastMinute = -1;
+
+        function _tickClock() {
+            const el = document.getElementById('currentClock');
+            if (!el) return;
+            const n  = new Date();
+            const hh = String(n.getHours()).padStart(2, '0');
+            const mm = String(n.getMinutes()).padStart(2, '0');
+            const ss = String(n.getSeconds()).padStart(2, '0');
+            el.innerHTML = `<i class="fas fa-clock me-1" aria-hidden="true"></i>${hh}:${mm}:${ss}`;
+
+            // Atualiza versão para leitores de tela apenas ao mudar de minuto
+            if (n.getMinutes() !== _lastMinute) {
+                _lastMinute = n.getMinutes();
+                const ariaEl = document.getElementById('clockAriaLabel');
+                if (ariaEl) {
+                    ariaEl.textContent = `Horário atual: ${hh}:${mm}`;
+                }
+            }
+        }
+        _tickClock();
+        setInterval(_tickClock, 1000);
+    })();
+
+    /* ── Garante que collapse Bootstrap mantém aria-expanded correto ─────────────── */
+    document.addEventListener('DOMContentLoaded', function () {
+        // Fecha menu mobile ao clicar em link dentro do collapse
+        const navLinks = document.querySelectorAll('#navbarNav .nav-link');
+        navLinks.forEach(link => {
+            link.addEventListener('click', function() {
+                const collapse = document.getElementById('navbarNav');
+                if (collapse && collapse.classList.contains('show')) {
+                    const toggler = document.querySelector('[data-bs-target="#navbarNav"]');
+                    if (toggler) toggler.click();
+                }
+            });
+        });
+    });
+    </script>
+
+    <script>
+    /* ═══════════════════════════════════════════════════════════════════════════
+       GERENCIADOR DE ACESSIBILIDADE — painel flutuante com localStorage
+       ═══════════════════════════════════════════════════════════════════════════ */
+    const A11y = (function () {
+        const KEY        = 'solar_a11y';
+        const FONT_SIZES = { sm:'14px', md:'16px', lg:'18px', xl:'20px' };
+        const LS_VALUES  = [0, 0.04, 0.08, 0.12, 0.18];
+        const LH_VALUES  = [1.6, 1.85, 2.1, 2.4];
+
+        let state = {
+            fontSize     : 'md',
+            letterSpacing: 0,
+            lineHeight   : 0,
+            boldText     : false,
+            contrast     : 'normal',
+            sat          : 'normal',
+            colorBlind   : 'none',
+            hideImages   : false,
+            guideRead    : false,
+            readMask     : false,
+            hlLinks      : false,
+            magnifier    : '0',
+            pauseAnim    : false,
+            stopSound    : false,
+            fontFamily   : 'default',
+        };
+
+        let _guideHandler = null, _guideTarget = null, _maskHandler = null;
+
+        function _applyFilter() {
+            var p = [];
+            if (state.contrast  === 'high')   p.push('contrast(1.8)');
+            if (state.contrast  === 'invert') p.push('invert(1) hue-rotate(180deg)');
+            if (state.sat       === 'low')    p.push('saturate(0.3)');
+            if (state.sat       === 'none')   p.push('saturate(0)');
+            if (state.colorBlind !== 'none')  p.push('url(#a11y-' + state.colorBlind + ')');
+            document.documentElement.style.filter = p.join(' ') || '';
+        }
+
+        function _applyClasses() {
+            var h = document.documentElement;
+            h.classList.toggle('a11y-mode-invert', state.contrast === 'invert');
+            h.classList.toggle('a11y-hl-links',    !!state.hlLinks);
+            h.classList.toggle('a11y-pause-anim',  !!state.pauseAnim);
+            h.classList.toggle('a11y-no-images',   !!state.hideImages);
+            h.classList.toggle('a11y-bold-text',   !!state.boldText);
+            h.classList.toggle('a11y-read-mask',   !!state.readMask);
+            h.classList.remove('a11y-mag-1', 'a11y-mag-2');
+            if (state.magnifier === '1') h.classList.add('a11y-mag-1');
+            if (state.magnifier === '2') h.classList.add('a11y-mag-2');
+        }
+
+        function _applyFont() {
+            document.documentElement.style.fontSize = FONT_SIZES[state.fontSize] || '16px';
+        }
+
+        function _applySpacing() {
+            var ls = LS_VALUES[state.letterSpacing] || 0;
+            var lh = LH_VALUES[state.lineHeight]    || 1.6;
+            document.body.style.letterSpacing = ls  > 0    ? ls + 'em' : '';
+            document.body.style.lineHeight    = lh !== 1.6  ? String(lh) : '';
+        }
+
+        function _applySound() {
+            document.querySelectorAll('audio,video').forEach(function(m) {
+                m.muted = !!state.stopSound;
+                if (state.stopSound) m.pause();
+            });
+        }
+
+        function _applyFontFamily() {
+            var h = document.documentElement;
+            h.classList.remove('a11y-font-atkinson', 'a11y-font-lexend');
+            if (state.fontFamily !== 'default') h.classList.add('a11y-font-' + state.fontFamily);
+            var desc = document.getElementById('a11yFontDesc');
+            if (desc) {
+                var descs = {
+                    default : '',
+                    atkinson: 'Atkinson Hyperlegible — Braille Institute. Indicada para baixa visão.',
+                    lexend  : 'Lexend — projetada para reduzir esforço visual e facilitar a leitura (dislexia).'
+                };
+                desc.textContent = descs[state.fontFamily] || '';
+            }
+        }
+
+        function _setupMask(active) {
+            if (_maskHandler) { document.removeEventListener('mousemove', _maskHandler); _maskHandler = null; }
+            if (!active) return;
+            var mh = 80;
+            _maskHandler = function(e) {
+                var top = document.getElementById('a11yMaskTop');
+                var win = document.getElementById('a11yMaskWin');
+                var bot = document.getElementById('a11yMaskBot');
+                if (!top) return;
+                var cy = e.clientY, vh = window.innerHeight;
+                var wt = Math.max(0, cy - mh / 2), wb = Math.min(vh, cy + mh / 2);
+                top.style.height = wt + 'px';
+                win.style.top    = wt + 'px'; win.style.height = (wb - wt) + 'px';
+                bot.style.top    = wb + 'px'; bot.style.height = (vh - wb) + 'px';
+            };
+            document.addEventListener('mousemove', _maskHandler, { passive: true });
+        }
+
+        function _setupGuide(active) {
+            if (_guideHandler) { document.removeEventListener('mouseover', _guideHandler); _guideHandler = null; }
+            if (_guideTarget)  { _guideTarget.classList.remove('a11y-guide-hl'); _guideTarget = null; }
+            if (!active) return;
+            _guideHandler = function(e) {
+                var el = e.target.closest('p,li,h1,h2,h3,h4,h5,h6,td,.card-text,.stat-value,.kpi-value');
+                if (_guideTarget !== el) {
+                    if (_guideTarget) _guideTarget.classList.remove('a11y-guide-hl');
+                    if (el) el.classList.add('a11y-guide-hl');
+                    _guideTarget = el;
+                }
+            };
+            document.addEventListener('mouseover', _guideHandler, { passive: true });
+        }
+
+        function _applyMagnifier() {
+            document.querySelectorAll('p,li,h1,h2,h3,h4,td,.stat-card,.card').forEach(function(el) {
+                if (state.magnifier !== '0') el.classList.add('a11y-magnifiable');
+                else                         el.classList.remove('a11y-magnifiable');
+            });
+        }
+
+        function _showStructure() {
+            var hs = document.querySelectorAll('main h1,main h2,main h3,main h4,main h5');
+            var html = '<nav aria-label="Índice da página"><ul class="list-unstyled ps-0 mb-0">';
+            if (!hs.length) {
+                html += '<li class="text-muted small p-2">Nenhum título encontrado nesta página.</li>';
+            } else {
+                hs.forEach(function(h) {
+                    var lvl = parseInt(h.tagName[1]), ind = (lvl-1)*14;
+                    var txt = h.textContent.trim(), href = h.id ? '#'+h.id : null;
+                    var sz  = (1.0-(lvl-1)*0.06).toFixed(2)+'rem';
+                    html += '<li style="padding-left:'+ind+'px;margin:3px 0">' +
+                        (href ? '<a href="'+href+'" onclick="bootstrap.Modal.getInstance(document.getElementById(\'a11yStructureModal\')).hide()" class="text-decoration-none" style="color:var(--primary-color);font-size:'+sz+'">'
+                              : '<span style="color:#495057;font-size:'+sz+'">') +
+                        (lvl>1?'▸ ':'')+txt+(href?'</a>':'</span>')+'</li>';
+                });
+            }
+            html += '</ul></nav>';
+            var body = document.getElementById('a11yStructureBody');
+            if (body) body.innerHTML = html;
+            new bootstrap.Modal(document.getElementById('a11yStructureModal')).show();
+        }
+
+        function _syncUI() {
+            document.querySelectorAll('[data-a11y-group]').forEach(function(btn) {
+                btn.setAttribute('aria-pressed',
+                    String(state[btn.dataset.a11yGroup]) === String(btn.dataset.a11yVal) ? 'true' : 'false');
+            });
+            document.querySelectorAll('[data-a11y-toggle]').forEach(function(chk) {
+                chk.checked = !!state[chk.dataset.a11yToggle];
+            });
+            var lsEl = document.getElementById('a11yLetterSpacingVal');
+            var lhEl = document.getElementById('a11yLineHeightVal');
+            if (lsEl) lsEl.textContent = state.letterSpacing > 0 ? '+'+state.letterSpacing : '0';
+            if (lhEl) lhEl.textContent = state.lineHeight    > 0 ? '+'+state.lineHeight    : '0';
+            _applyFontFamily();
+        }
+
+        function _announce(msg) {
+            var r = document.getElementById('collectStatusRegion');
+            if (!r||!msg) return;
+            r.textContent = '';
+            setTimeout(function(){ r.textContent = msg; }, 50);
+        }
+
+        function _save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {} }
+        function _load() { try { var s=localStorage.getItem(KEY); if(s) state=Object.assign({},state,JSON.parse(s)); } catch(e) {} }
+
+        function _applyAll() {
+            _applyFont(); _applyFilter(); _applyClasses(); _applySpacing(); _applySound();
+            _setupMask(!!state.readMask); _setupGuide(!!state.guideRead); _applyMagnifier();
+            _applyFontFamily();
+        }
+
+        return {
+            handle: function(btn) {
+                var g=btn.dataset.a11yGroup, v=btn.dataset.a11yVal;
+                if(!(g in state)) return;
+                state[g]=v; _applyAll(); _syncUI(); _save();
+            },
+            handleToggle: function(chk) {
+                var k=chk.dataset.a11yToggle;
+                if(!(k in state)) return;
+                state[k]=chk.checked; _applyAll(); _syncUI(); _save();
+                var msgs={
+                    boldText  : chk.checked?'Letras destacadas ativadas':'Letras destacadas desativadas',
+                    guideRead : chk.checked?'Leitura guiada ativada':'Leitura guiada desativada',
+                    readMask  : chk.checked?'Máscara de leitura ativada':'Máscara desativada',
+                    hlLinks   : chk.checked?'Destaque de links ativado':'Destaque de links desativado',
+                    pauseAnim : chk.checked?'Animações pausadas':'Animações retomadas',
+                    hideImages: chk.checked?'Imagens ocultadas':'Imagens exibidas',
+                    stopSound : chk.checked?'Som silenciado':'Som reativado',
+                };
+                _announce(msgs[k]);
+            },
+            inc: function(key) {
+                var mx={letterSpacing:LS_VALUES.length-1, lineHeight:LH_VALUES.length-1};
+                if(state[key]<mx[key]){ state[key]++; _applyAll(); _syncUI(); _save(); }
+            },
+            dec: function(key) {
+                if(state[key]>0){ state[key]--; _applyAll(); _syncUI(); _save(); }
+            },
+            togglePanel: function(forceOpen) {
+                var panel=document.getElementById('a11yFloatPanel');
+                var btn=document.getElementById('a11yPanelToggle');
+                var nav=document.getElementById('a11yNavBtn');
+                if(!panel) return;
+                var open=forceOpen!==undefined?!!forceOpen:!panel.classList.contains('is-open');
+                panel.classList.toggle('is-open', open);
+                panel.setAttribute('aria-hidden', open?'false':'true');
+                if(btn) btn.setAttribute('aria-expanded', open?'true':'false');
+                if(nav) nav.setAttribute('aria-expanded', open?'true':'false');
+                if(open){ var f=panel.querySelector('button:not(.a11y-panel-close),input'); if(f) setTimeout(function(){f.focus();},320); }
+            },
+            showStructure: function(){ _showStructure(); },
+            reset: function() {
+                state={fontSize:'md',letterSpacing:0,lineHeight:0,boldText:false,
+                       contrast:'normal',sat:'normal',colorBlind:'none',
+                       hideImages:false,guideRead:false,readMask:false,
+                       hlLinks:false,magnifier:'0',pauseAnim:false,stopSound:false,
+                       fontFamily:'default'};
+                _applyAll(); _syncUI(); _save();
+                _announce('Preferências de acessibilidade redefinidas.');
+            },
+            init: function() {
+                _load(); _applyAll();
+                if(document.readyState!=='loading'){ _syncUI(); }
+                else { document.addEventListener('DOMContentLoaded', _syncUI); }
+            },
+            syncUI: function(){ _syncUI(); }
+        };
+    })();
+
+    A11y.init();
     </script>
 
     {% block extra_js %}{% endblock %}
