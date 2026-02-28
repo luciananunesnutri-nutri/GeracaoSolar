@@ -705,6 +705,25 @@ class Repository:
             session.close()
 
     @staticmethod
+    def was_email_sent_today(email_type: str) -> bool:
+        """Retorna True se já foi enviado um email do tipo informado com sucesso hoje."""
+        session = db.get_session()
+        try:
+            today_start = datetime.combine(date.today(), datetime.min.time())
+            count = (
+                session.query(EmailLog)
+                .filter(
+                    EmailLog.email_type == email_type,
+                    EmailLog.success == True,
+                    EmailLog.sent_at >= today_start,
+                )
+                .count()
+            )
+            return count > 0
+        finally:
+            session.close()
+
+    @staticmethod
     def get_email_logs(limit: int = 100, email_type: str = None) -> List[EmailLog]:
         """Retorna o histórico de envios de email, do mais recente ao mais antigo."""
         session = db.get_session()

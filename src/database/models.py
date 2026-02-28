@@ -1,12 +1,37 @@
 from datetime import datetime
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean, Text, JSON, Date, Enum
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean, Text, JSON, Date, Enum, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from flask_login import UserMixin
 import enum
 from pathlib import Path
 import yaml
 
 Base = declarative_base()
+
+
+class User(UserMixin, Base):
+    """Usuário administrador do sistema."""
+    __tablename__ = 'users'
+
+    id                   = Column(Integer, primary_key=True)
+    email                = Column(String(200), nullable=False, unique=True, index=True)
+    password_hash        = Column(String(256), nullable=False)
+    name                 = Column(String(100), nullable=False)
+    role                 = Column(String(50), nullable=False, default='admin')
+    active               = Column(Boolean, default=True, nullable=False)
+    created_at           = Column(DateTime, default=datetime.now)
+    last_login           = Column(DateTime, nullable=True)
+    invite_token         = Column(String(64), nullable=True, unique=True, index=True)
+    token_expires_at     = Column(DateTime, nullable=True)
+    must_change_password = Column(Boolean, default=False, nullable=False)
+
+    @property
+    def is_active(self):
+        return self.active
+
+    def __repr__(self):
+        return f"<User(email='{self.email}', role='{self.role}')>"
 
 
 class PeriodType(enum.Enum):

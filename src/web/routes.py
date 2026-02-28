@@ -1,9 +1,11 @@
 from flask import render_template, jsonify, request
+from flask_login import current_user
 from datetime import date, datetime, timedelta
 from ..database.repository import Repository
 from ..alerts.alert_manager import AlertManager
 from ..analysis.statistics import StatisticsCalculator
 from ..utils.logger import logger
+from .decorators import role_required
 import yaml
 import threading
 from pathlib import Path
@@ -40,6 +42,7 @@ def register_routes(app):
         return render_template('dashboard.html')
 
     @app.route('/config')
+    @role_required('admin')
     def config_page():
         """Página de configurações do sistema."""
         return render_template('config.html')
@@ -52,6 +55,7 @@ def register_routes(app):
     # ── API de Configurações ──────────────────────────────────────────────────
 
     @app.route('/api/config/all', methods=['GET'])
+    @role_required('admin')
     def api_config_all():
         """Retorna todas as configurações do sistema."""
         try:
@@ -116,6 +120,7 @@ def register_routes(app):
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/config/apsystems', methods=['POST'])
+    @role_required('admin')
     def api_config_save_apsystems():
         """Salva credenciais APSystems."""
         try:
@@ -142,6 +147,7 @@ def register_routes(app):
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/config/scheduler', methods=['POST'])
+    @role_required('admin')
     def api_config_save_scheduler():
         """Salva configuração do scheduler."""
         try:
@@ -172,6 +178,7 @@ def register_routes(app):
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/scheduler/log')
+    @role_required('admin')
     def api_scheduler_log():
         """Retorna histórico de execuções dos jobs agendados."""
         try:
@@ -198,6 +205,7 @@ def register_routes(app):
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/scheduler/restart', methods=['POST'])
+    @role_required('admin')
     def api_scheduler_restart():
         """Reinicia o processo do scheduler (main.py)."""
         import subprocess, sys as _sys
@@ -236,6 +244,7 @@ def register_routes(app):
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/config/system', methods=['POST'])
+    @role_required('admin')
     def api_config_save_system():
         """Salva configuração do sistema (logging, web)."""
         try:
@@ -266,6 +275,7 @@ def register_routes(app):
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/config/claude', methods=['POST'])
+    @role_required('admin')
     def api_config_save_claude():
         """Salva configuração do assistente Claude IA."""
         try:
@@ -291,6 +301,7 @@ def register_routes(app):
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/chat', methods=['POST'])
+    @role_required('admin', 'operator')
     def api_chat():
         """Processa mensagem de chat usando Claude IA com contexto solar."""
         try:
@@ -668,6 +679,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/alerts/<int:alert_id>/resolve', methods=['POST'])
+    @role_required('admin', 'operator')
     def api_resolve_alert(alert_id):
         """Resolve um alerta."""
         try:
@@ -895,6 +907,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/collect', methods=['POST'])
+    @role_required('admin', 'operator')
     def api_collect():
         """Dispara coleta de dados em background."""
         if _collect_state['running']:
@@ -934,6 +947,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
     # ── Destinatários de alertas ──────────────────────────────────────────────
 
     @app.route('/api/email/recipients', methods=['GET'])
+    @role_required('admin')
     def api_recipients_list():
         """Lista todos os destinatários."""
         try:
@@ -955,6 +969,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/email/recipients', methods=['POST'])
+    @role_required('admin')
     def api_recipients_add():
         """Cadastra novo destinatário."""
         try:
@@ -970,6 +985,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             return jsonify({'status': 'error', 'message': msg}), 400
 
     @app.route('/api/email/recipients/<int:rid>', methods=['PUT'])
+    @role_required('admin')
     def api_recipients_update(rid):
         """Atualiza destinatário (ativo, preferências)."""
         try:
@@ -983,6 +999,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/email/recipients/<int:rid>', methods=['DELETE'])
+    @role_required('admin')
     def api_recipients_delete(rid):
         """Remove destinatário."""
         try:
@@ -994,6 +1011,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/email/config', methods=['GET'])
+    @role_required('admin')
     def api_email_config_get():
         """Retorna configuração de email atual (senha mascarada)."""
         try:
@@ -1017,6 +1035,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/email/config', methods=['POST'])
+    @role_required('admin')
     def api_email_config_save():
         """Salva configuração de email em credentials.yaml."""
         try:
@@ -1048,6 +1067,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/email/test', methods=['POST'])
+    @role_required('admin')
     def api_email_test():
         """Envia email de teste."""
         try:
@@ -1100,6 +1120,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/email/log', methods=['GET'])
+    @role_required('admin')
     def api_email_log():
         """Retorna o histórico de envios de email."""
         try:
@@ -1132,17 +1153,30 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/email/evening-summary', methods=['POST'])
+    @role_required('admin')
     def api_email_evening_summary():
-        """Dispara o resumo vespertino manualmente (mesmo job do scheduler)."""
+        """Dispara o resumo vespertino manualmente (mesmo job do scheduler).
+        Aceita ?force=true para reenviar mesmo que já tenha sido enviado hoje."""
         try:
             from ..scheduler.jobs import send_evening_summary
-            send_evening_summary()
+            from ..database.repository import Repository
+
+            force = request.args.get('force', '').lower() == 'true'
+
+            if not force and Repository.was_email_sent_today('evening_summary'):
+                return jsonify({
+                    'status': 'skipped',
+                    'message': 'Resumo vespertino já enviado hoje. Use ?force=true para reenviar.',
+                }), 200
+
+            send_evening_summary(force=True)
             return jsonify({'status': 'success', 'message': 'Resumo vespertino enviado'})
         except Exception as e:
             logger.error(f"Erro ao enviar resumo vespertino: {e}")
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
     @app.route('/api/email/report', methods=['POST'])
+    @role_required('admin')
     def api_email_report():
         """Envia relatório diário por email."""
         try:
@@ -1180,3 +1214,142 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
         except Exception as e:
             logger.error(f"Erro ao enviar relatório: {e}")
             return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    # ── Gestão de Usuários (Admin) ─────────────────────────────────────────────
+
+    @app.route('/api/admin/users', methods=['GET'])
+    @role_required('admin')
+    def api_admin_users_list():
+        """Lista todos os usuários do sistema."""
+        from ..database.models import db, User
+        session = db.get_session()
+        try:
+            users = session.query(User).order_by(User.created_at).all()
+            return jsonify({'status': 'success', 'users': [{
+                'id':                   u.id,
+                'name':                 u.name,
+                'email':                u.email,
+                'role':                 u.role,
+                'active':               u.active,
+                'last_login':           u.last_login.strftime('%d/%m/%Y %H:%M') if u.last_login else None,
+                'must_change_password': u.must_change_password,
+                'has_pending_invite':   bool(u.invite_token),
+                'created_at':           u.created_at.strftime('%d/%m/%Y %H:%M') if u.created_at else None,
+            } for u in users]})
+        finally:
+            session.close()
+
+    @app.route('/api/admin/users', methods=['POST'])
+    @role_required('admin')
+    def api_admin_users_create():
+        """Cria usuário e envia convite por email."""
+        import secrets as _sec
+        from ..database.models import db, User
+        from werkzeug.security import generate_password_hash as _gph
+        from .auth import _send_invite_email
+
+        data = request.get_json(silent=True) or {}
+        name  = (data.get('name') or '').strip()
+        email = (data.get('email') or '').strip().lower()
+        role  = (data.get('role') or 'viewer').strip()
+
+        if not name or not email or '@' not in email:
+            return jsonify({'status': 'error', 'message': 'Nome e e-mail válidos são obrigatórios'}), 400
+        if role not in ('admin', 'operator', 'viewer'):
+            return jsonify({'status': 'error', 'message': 'Role inválido'}), 400
+
+        session = db.get_session()
+        try:
+            if session.query(User).filter_by(email=email).first():
+                return jsonify({'status': 'error', 'message': 'E-mail já cadastrado'}), 409
+
+            token = _sec.token_urlsafe(32)
+            from datetime import timedelta
+            expires = datetime.now() + timedelta(hours=48)
+            user = User(
+                name=name, email=email, role=role, active=True,
+                must_change_password=True,
+                invite_token=token, token_expires_at=expires,
+                password_hash=_gph(_sec.token_urlsafe(16)),
+            )
+            session.add(user)
+            session.commit()
+            _send_invite_email(user, request.host_url)
+            return jsonify({'status': 'success', 'message': 'Usuário criado e convite enviado', 'id': user.id})
+        except Exception as e:
+            session.rollback()
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+        finally:
+            session.close()
+
+    @app.route('/api/admin/users/<int:uid>', methods=['PUT'])
+    @role_required('admin')
+    def api_admin_users_update(uid):
+        """Atualiza name, role ou active de um usuário."""
+        from ..database.models import db, User
+
+        data = request.get_json(silent=True) or {}
+        session = db.get_session()
+        try:
+            user = session.query(User).get(uid)
+            if not user:
+                return jsonify({'status': 'error', 'message': 'Usuário não encontrado'}), 404
+
+            # Impede remoção do próprio acesso
+            if uid == current_user.id:
+                if 'active' in data and not data['active']:
+                    return jsonify({'status': 'error', 'message': 'Não é possível desativar o próprio usuário'}), 400
+                if 'role' in data and data['role'] != 'admin':
+                    return jsonify({'status': 'error', 'message': 'Não é possível rebaixar o próprio usuário'}), 400
+
+            # Impede remover último admin ativo
+            if 'active' in data and not data['active'] and user.role == 'admin':
+                admin_count = session.query(User).filter_by(role='admin', active=True).count()
+                if admin_count <= 1:
+                    return jsonify({'status': 'error', 'message': 'Não é possível desativar o único admin ativo'}), 400
+            if 'role' in data and data['role'] != 'admin' and user.role == 'admin':
+                admin_count = session.query(User).filter_by(role='admin', active=True).count()
+                if admin_count <= 1:
+                    return jsonify({'status': 'error', 'message': 'Não é possível rebaixar o único admin ativo'}), 400
+
+            if 'name' in data:
+                user.name = data['name'].strip()
+            if 'role' in data and data['role'] in ('admin', 'operator', 'viewer'):
+                user.role = data['role']
+            if 'active' in data:
+                user.active = bool(data['active'])
+
+            session.commit()
+            return jsonify({'status': 'success', 'message': 'Usuário atualizado'})
+        except Exception as e:
+            session.rollback()
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+        finally:
+            session.close()
+
+    @app.route('/api/admin/users/<int:uid>/reinvite', methods=['POST'])
+    @role_required('admin')
+    def api_admin_users_reinvite(uid):
+        """Gera novo token e reenvia email de ativação."""
+        import secrets as _sec
+        from ..database.models import db, User
+        from .auth import _send_invite_email
+
+        session = db.get_session()
+        try:
+            user = session.query(User).get(uid)
+            if not user:
+                return jsonify({'status': 'error', 'message': 'Usuário não encontrado'}), 404
+
+            from datetime import timedelta
+            user.invite_token     = _sec.token_urlsafe(32)
+            user.token_expires_at = datetime.now() + timedelta(hours=48)
+            user.must_change_password = True
+            session.commit()
+            _send_invite_email(user, request.host_url)
+            return jsonify({'status': 'success', 'message': 'Convite reenviado por e-mail'})
+        except Exception as e:
+            session.rollback()
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+        finally:
+            session.close()

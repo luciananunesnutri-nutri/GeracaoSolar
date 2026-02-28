@@ -18,10 +18,22 @@ def create_app():
         config = yaml.safe_load(f)
 
     app.config['DEBUG'] = config['web']['debug']
+    app.secret_key = config['auth']['secret_key']
+
+    # Autenticação via Flask-Login
+    from .login_manager import login_manager
+    login_manager.init_app(app)
+
+    # Blueprint de autenticação (login/logout)
+    from .auth import auth_bp
+    app.register_blueprint(auth_bp)
 
     # Registrar rotas
     from .routes import register_routes
     register_routes(app)
+
+    # Criar admin inicial se não existir
+    _ensure_admin_user(config)
 
     # Forçar no-cache em todas as respostas HTML para evitar cache de browser
     @app.after_request
@@ -33,6 +45,35 @@ def create_app():
         return response
 
     return app
+
+
+def _ensure_admin_user(config):
+    """Cria o usuário admin inicial se o banco não tiver nenhum usuário."""
+    from werkzeug.security import generate_password_hash
+    from ..database.models import db, User
+    session = db.get_session()
+    try:
+        if session.query(User).count() > 0:
+            return
+        admin_cfg = config.get('auth', {}).get('initial_admin', {})
+        email    = admin_cfg.get('email', 'admin@geracaosolar.local')
+        password = admin_cfg.get('password', 'SenhaForte2026!')
+        name     = admin_cfg.get('name', 'Administrador')
+        user = User(
+            email=email,
+            password_hash=generate_password_hash(password),
+            name=name,
+            role='admin',
+            active=True,
+        )
+        session.add(user)
+        session.commit()
+        logger.info(f"Admin inicial criado: {email}")
+    except Exception as e:
+        session.rollback()
+        logger.error(f"Erro ao criar admin inicial: {e}")
+    finally:
+        session.close()
 
 
 def get_repository():

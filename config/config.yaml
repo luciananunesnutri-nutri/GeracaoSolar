@@ -1,9 +1,15 @@
+auth:
+  initial_admin:
+    email: admin@geracaosolar.local
+    name: Administrador
+    password: SenhaForte2026!
+  secret_key: 091bd1f6a6a7ab0d302d04279d9bf40dcd500a70f1bc52df7f7a62f8199a3a7b
 apsystems:
   base_url: https://api.apsystemsema.com:9282
   max_retries: 3
   timeout: 30
 claude:
-  api_key: ''
+  api_key: YOUR_ANTHROPIC_API_KEY_HERE
   max_tokens: 1024
   model: claude-haiku-4-5-20251001
 database:

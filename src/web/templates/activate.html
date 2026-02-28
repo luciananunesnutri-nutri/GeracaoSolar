@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Ativar Conta — Monitoramento Solar{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active" property="itemListElement" typeof="ListItem">
+    <span property="name">Ativar Conta</span>
+    <meta property="position" content="2">
+</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-12 col-sm-10 col-md-7 col-lg-5 col-xl-4">
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white text-center py-3">
+                <h1 class="h5 mb-0">
+                    <i class="fas fa-key me-2" aria-hidden="true"></i>
+                    Definir senha de acesso
+                </h1>
+            </div>
+
+            <div class="card-body p-4">
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"
+                                        aria-label="Fechar alerta"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <p class="text-muted mb-4">
+                    Crie uma senha para ativar seu acesso ao sistema de monitoramento solar.
+                </p>
+
+                <form method="POST" action="/activate/{{ token }}" novalidate>
+
+                    <div class="mb-3">
+                        <label for="activatePassword" class="form-label fw-semibold">
+                            <i class="fas fa-lock me-1" aria-hidden="true"></i>Nova senha
+                        </label>
+                        <div class="input-group">
+                            <input type="password"
+                                   class="form-control"
+                                   id="activatePassword"
+                                   name="password"
+                                   autocomplete="new-password"
+                                   required
+                                   autofocus
+                                   minlength="8"
+                                   aria-describedby="pwHelp"
+                                   placeholder="Mínimo 8 caracteres">
+                            <button class="btn btn-outline-secondary" type="button"
+                                    onclick="togglePwd('activatePassword','eye1')"
+                                    aria-label="Mostrar ou ocultar senha">
+                                <i class="fas fa-eye" id="eye1" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                        <div id="pwHelp" class="form-text text-muted">Mínimo de 8 caracteres.</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="activatePassword2" class="form-label fw-semibold">
+                            <i class="fas fa-lock me-1" aria-hidden="true"></i>Confirmar senha
+                        </label>
+                        <div class="input-group">
+                            <input type="password"
+                                   class="form-control"
+                                   id="activatePassword2"
+                                   name="password2"
+                                   autocomplete="new-password"
+                                   required
+                                   minlength="8"
+                                   placeholder="Repita a senha">
+                            <button class="btn btn-outline-secondary" type="button"
+                                    onclick="togglePwd('activatePassword2','eye2')"
+                                    aria-label="Mostrar ou ocultar confirmação de senha">
+                                <i class="fas fa-eye" id="eye2" aria-hidden="true"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success btn-lg fw-semibold">
+                            <i class="fas fa-check me-2" aria-hidden="true"></i>Ativar conta
+                        </button>
+                    </div>
+
+                </form>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function togglePwd(inputId, iconId) {
+    const inp = document.getElementById(inputId);
+    const ico = document.getElementById(iconId);
+    if (inp.type === 'password') {
+        inp.type = 'text';
+        ico.className = 'fas fa-eye-slash';
+    } else {
+        inp.type = 'password';
+        ico.className = 'fas fa-eye';
+    }
+}
+</script>
+{% endblock %}

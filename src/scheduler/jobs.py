@@ -227,15 +227,22 @@ def collect_solar_data():
         raise
 
 
-def send_evening_summary():
+def send_evening_summary(force: bool = False):
     """
     Envia resumo do dia por email às 17:00.
     Coleta os dados mais recentes e envia para todos os destinatários ativos.
+    Guard: não envia se já foi enviado com sucesso hoje (a menos que force=True).
     """
     _job_started_at = datetime.now()
     logger.info("=" * 50)
     logger.info("Enviando resumo vespertino por email")
     logger.info("=" * 50)
+
+    # Idempotência: evitar duplo envio no mesmo dia
+    if not force and Repository.was_email_sent_today('evening_summary'):
+        logger.info("Resumo vespertino já enviado hoje — ignorando execução dupla")
+        logger.info("=" * 50)
+        return
 
     try:
         config = load_config()

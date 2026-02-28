@@ -742,6 +742,7 @@
                         </li>
 
                         <!-- Botão Coletar Dados (desktop) -->
+                        {% if current_user.is_authenticated and current_user.role in ['admin', 'operator'] %}
                         <li class="nav-item d-none d-lg-flex" role="listitem">
                             <button class="btn btn-warning btn-sm fw-semibold"
                                     id="btnCollect"
@@ -753,6 +754,7 @@
                                 <span>Coletar Dados</span>
                             </button>
                         </li>
+                        {% endif %}
 
                         <!-- Links de navegação — desktop -->
                         <li class="nav-item d-none d-lg-flex" role="listitem">
@@ -771,6 +773,7 @@
                                 <span>Insights</span>
                             </a>
                         </li>
+                        {% if current_user.is_authenticated and current_user.role == 'admin' %}
                         <li class="nav-item d-none d-lg-flex" role="listitem">
                             <a class="btn btn-outline-light btn-sm" href="/config"
                                {% if request.path == '/config' %}aria-current="page"{% endif %}
@@ -778,6 +781,52 @@
                                 <i class="fas fa-cog" aria-hidden="true"></i>
                                 <span>Configurações</span>
                             </a>
+                        </li>
+                        {% endif %}
+
+                        <!-- Botão login/admin (desktop) -->
+                        <li class="nav-item d-none d-lg-flex" role="listitem">
+                          {% if current_user.is_authenticated %}
+                            <div class="dropdown">
+                              <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button"
+                                      id="adminDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-user-shield me-1" aria-hidden="true"></i>
+                                <span>{{ current_user.name }}</span>
+                              </button>
+                              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminDropdown">
+                                <li>
+                                  <span class="dropdown-item-text small text-muted">
+                                    Perfil:
+                                    {% if current_user.role == 'admin' %}
+                                      <span class="badge bg-danger ms-1">Admin</span>
+                                    {% elif current_user.role == 'operator' %}
+                                      <span class="badge bg-primary ms-1">Operador</span>
+                                    {% else %}
+                                      <span class="badge bg-secondary ms-1">Visualizador</span>
+                                    {% endif %}
+                                  </span>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                  <a class="dropdown-item" href="/change-password">
+                                    <i class="fas fa-key me-2"></i>Alterar senha
+                                  </a>
+                                </li>
+                                <li>
+                                  <form action="/logout" method="POST">
+                                    <button type="submit" class="dropdown-item text-danger">
+                                      <i class="fas fa-sign-out-alt me-2"></i>Sair
+                                    </button>
+                                  </form>
+                                </li>
+                              </ul>
+                            </div>
+                          {% else %}
+                            <a class="btn btn-outline-light btn-sm" href="/login" aria-label="Fazer login">
+                              <i class="fas fa-sign-in-alt me-1" aria-hidden="true"></i>
+                              <span>Entrar</span>
+                            </a>
+                          {% endif %}
                         </li>
 
                         <!-- ── Acessibilidade — abre painel flutuante ─────────────────────── -->
@@ -819,12 +868,31 @@
                                 <i class="fas fa-lightbulb me-1" aria-hidden="true"></i>Insights
                             </a>
                         </li>
+                        {% if current_user.is_authenticated and current_user.role == 'admin' %}
                         <li class="nav-item d-lg-none" role="listitem">
                             <a class="nav-link" href="/config"
                                {% if request.path == '/config' %}aria-current="page"{% endif %}>
                                 <i class="fas fa-cog me-1" aria-hidden="true"></i>Configurações
                             </a>
                         </li>
+                        {% endif %}
+
+                        <!-- Login/logout mobile hamburguer -->
+                        {% if current_user.is_authenticated %}
+                        <li class="nav-item d-lg-none" role="listitem">
+                          <form action="/logout" method="POST">
+                            <button type="submit" class="nav-link btn btn-link text-danger text-start w-100 bg-transparent border-0">
+                              <i class="fas fa-sign-out-alt me-1"></i>Sair ({{ current_user.name }})
+                            </button>
+                          </form>
+                        </li>
+                        {% else %}
+                        <li class="nav-item d-lg-none" role="listitem">
+                          <a class="nav-link" href="/login">
+                            <i class="fas fa-sign-in-alt me-1"></i>Entrar
+                          </a>
+                        </li>
+                        {% endif %}
 
                         <!-- ── Acessibilidade mobile — abre painel flutuante ─────────────── -->
                         <li class="nav-item d-lg-none" role="listitem">
@@ -916,6 +984,7 @@
                 <i class="fas fa-lightbulb" aria-hidden="true"></i>
                 <span>Insights</span>
             </a>
+            {% if current_user.is_authenticated and current_user.role in ['admin', 'operator'] %}
             <button class="mob-nav-item mob-collect"
                     onclick="triggerCollect()"
                     id="btnCollectMobile"
@@ -925,6 +994,8 @@
                 <i class="fas fa-download" id="mobCollectIcon" aria-hidden="true"></i>
                 <span id="mobCollectLabel">Coletar</span>
             </button>
+            {% endif %}
+            {% if current_user.is_authenticated and current_user.role == 'admin' %}
             <a href="/config"
                class="mob-nav-item {% if request.path == '/config' %}active{% endif %}"
                {% if request.path == '/config' %}aria-current="page"{% endif %}
@@ -933,6 +1004,15 @@
                 <i class="fas fa-cog" aria-hidden="true"></i>
                 <span>Config</span>
             </a>
+            {% elif not current_user.is_authenticated %}
+            <a href="/login"
+               class="mob-nav-item"
+               role="listitem"
+               aria-label="Entrar">
+                <i class="fas fa-sign-in-alt" aria-hidden="true"></i>
+                <span>Entrar</span>
+            </a>
+            {% endif %}
         </div>
     </nav>
 
@@ -1298,6 +1378,8 @@
         _setCollectState('running');
         try {
             const res = await fetch('/api/collect', { method: 'POST' });
+            if (res.status === 401) { window.location.href = '/login'; return; }
+            if (res.status === 403) { alert('Sem permissão para coletar dados'); _setCollectState('idle'); return; }
             if (res.status === 409) { _setCollectState('waiting'); }
             _collectPollTimer = setInterval(pollCollectStatus, 3000);
         } catch (e) {
@@ -1720,5 +1802,21 @@
     </script>
 
     {% block extra_js %}{% endblock %}
+
+    <script>
+    /* Fallback: exibe hora de carregamento nas páginas sem fullUpdate() */
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof fullUpdate !== 'function') {
+            var el = document.getElementById('lastUpdate');
+            if (el) {
+                var n = new Date();
+                var hms = String(n.getHours()).padStart(2,'0') + ':' +
+                          String(n.getMinutes()).padStart(2,'0') + ':' +
+                          String(n.getSeconds()).padStart(2,'0');
+                el.textContent = 'Carregado: ' + hms;
+            }
+        }
+    });
+    </script>
 </body>
 </html>

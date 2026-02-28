@@ -126,6 +126,19 @@
             IA / Chat
         </a>
     </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link"
+           data-bs-toggle="tab"
+           href="#tab-users"
+           role="tab"
+           id="tab-users-btn"
+           aria-controls="tab-users"
+           aria-selected="false">
+            <i class="fas fa-users-cog" aria-hidden="true"></i>
+            <span class="d-none d-sm-inline">Usuários</span>
+            <span class="d-sm-none">Users</span>
+        </a>
+    </li>
 </ul>
 </div>
 
@@ -757,7 +770,114 @@
         </div>
     </div>
 
+    <!-- ── Gestão de Usuários ─────────────────────────────────────────────── -->
+    <div class="tab-pane fade" id="tab-users" role="tabpanel" aria-labelledby="tab-users-btn">
+        <div class="card">
+            <div class="card-header text-white d-flex justify-content-between align-items-center"
+                 style="background-color:var(--primary-color)">
+                <h5 class="mb-0"><i class="fas fa-users-cog" aria-hidden="true"></i> Usuários do Sistema</h5>
+                <button class="btn btn-light btn-sm fw-semibold"
+                        data-bs-toggle="modal" data-bs-target="#modalNovoUsuario">
+                    <i class="fas fa-user-plus" aria-hidden="true"></i> Novo Usuário
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div id="usersTableContainer" class="table-responsive">
+                    <p class="text-muted p-3">Carregando...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div><!-- end tab-content -->
+
+<!-- ── Modal: Novo Usuário ────────────────────────────────────────────────── -->
+<div class="modal fade" id="modalNovoUsuario" tabindex="-1"
+     aria-labelledby="modalNovoUsuarioLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalNovoUsuarioLabel">
+                    <i class="fas fa-user-plus me-2" aria-hidden="true"></i>Novo Usuário
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="feedbackNewUser" class="alert d-none" role="alert" aria-live="polite"></div>
+                <div class="mb-3">
+                    <label for="newUserName" class="form-label fw-semibold">Nome completo</label>
+                    <input type="text" class="form-control" id="newUserName"
+                           placeholder="Nome do usuário" required>
+                </div>
+                <div class="mb-3">
+                    <label for="newUserEmail" class="form-label fw-semibold">E-mail</label>
+                    <input type="email" class="form-control" id="newUserEmail"
+                           placeholder="email@dominio.com" required>
+                </div>
+                <div class="mb-3">
+                    <label for="newUserRole" class="form-label fw-semibold">Perfil</label>
+                    <select class="form-select" id="newUserRole">
+                        <option value="viewer">Visualizador — somente leitura</option>
+                        <option value="operator">Operador — coleta + alertas + chat</option>
+                        <option value="admin">Admin — acesso total</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success fw-semibold" id="btnCreateUser"
+                        onclick="createUser()">
+                    <i class="fas fa-paper-plane me-1" aria-hidden="true"></i>Criar e enviar convite
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Modal: Editar Usuário ─────────────────────────────────────────────── -->
+<div class="modal fade" id="modalEditarUsuario" tabindex="-1"
+     aria-labelledby="modalEditarUsuarioLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalEditarUsuarioLabel">
+                    <i class="fas fa-user-edit me-2" aria-hidden="true"></i>Editar Usuário
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="feedbackEditUser" class="alert d-none" role="alert" aria-live="polite"></div>
+                <input type="hidden" id="editUserId">
+                <div class="mb-3">
+                    <label for="editUserName" class="form-label fw-semibold">Nome completo</label>
+                    <input type="text" class="form-control" id="editUserName" required>
+                </div>
+                <div class="mb-3">
+                    <label for="editUserRole" class="form-label fw-semibold">Perfil</label>
+                    <select class="form-select" id="editUserRole">
+                        <option value="viewer">Visualizador</option>
+                        <option value="operator">Operador</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="editUserActive" class="form-label fw-semibold">Status</label>
+                    <select class="form-select" id="editUserActive">
+                        <option value="true">Ativo</option>
+                        <option value="false">Inativo</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary fw-semibold" onclick="saveEditUser()">
+                    <i class="fas fa-save me-1" aria-hidden="true"></i>Salvar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -1574,6 +1694,185 @@ document.addEventListener('DOMContentLoaded', () => {
     loadEmailLog();
     loadSchedulerLog();
     setInterval(renderTimeline, 60000); // atualiza indicador "agora" a cada minuto
+
+    // Carrega lista de usuários ao abrir a aba
+    document.getElementById('tab-users-btn')?.addEventListener('shown.bs.tab', loadUsers);
+
+    // Limpa modal de novo usuário ao fechar
+    document.getElementById('modalNovoUsuario')?.addEventListener('hidden.bs.modal', () => {
+        document.getElementById('newUserName').value = '';
+        document.getElementById('newUserEmail').value = '';
+        document.getElementById('newUserRole').value = 'viewer';
+        const fb = document.getElementById('feedbackNewUser');
+        fb.className = 'alert d-none'; fb.textContent = '';
+        const btn = document.getElementById('btnCreateUser');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Criar e enviar convite';
+    });
 });
+
+// ── Gestão de Usuários ──────────────────────────────────────────────────────
+
+const ROLE_BADGE = {
+    admin:    '<span class="badge bg-danger">Admin</span>',
+    operator: '<span class="badge bg-primary">Operador</span>',
+    viewer:   '<span class="badge bg-secondary">Visualizador</span>',
+};
+
+async function loadUsers() {
+    const container = document.getElementById('usersTableContainer');
+    if (!container) return;
+    container.innerHTML = '<p class="text-muted p-3">Carregando...</p>';
+    try {
+        const res  = await fetch('/api/admin/users');
+        const data = await res.json();
+        if (!res.ok || data.status !== 'success') throw new Error(data.message || 'Erro');
+
+        if (!data.users.length) {
+            container.innerHTML = '<p class="text-muted p-3">Nenhum usuário cadastrado.</p>';
+            return;
+        }
+
+        const rows = data.users.map(u => {
+            const activeBadge = u.active
+                ? '<span class="badge bg-success">Ativo</span>'
+                : '<span class="badge bg-secondary">Inativo</span>';
+            const inviteBadge = u.has_pending_invite
+                ? ' <span class="badge bg-warning text-dark ms-1" title="Convite pendente">Convite</span>'
+                : '';
+            const lastLogin = u.last_login || '—';
+            const actions = `
+                <button class="btn btn-outline-secondary btn-sm"
+                        onclick="openEditUser(${u.id},'${escHtml(u.name)}','${u.role}',${u.active})"
+                        title="Editar usuário">
+                    <i class="fas fa-edit" aria-hidden="true"></i>
+                </button>
+                ${u.has_pending_invite ? `
+                <button class="btn btn-outline-warning btn-sm"
+                        onclick="reinviteUser(${u.id})"
+                        title="Reenviar convite">
+                    <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                </button>` : ''}
+            `;
+            return `<tr>
+                <td>${escHtml(u.name)}</td>
+                <td class="text-muted small">${escHtml(u.email)}</td>
+                <td>${ROLE_BADGE[u.role] || u.role}${inviteBadge}</td>
+                <td>${activeBadge}</td>
+                <td class="small text-muted">${lastLogin}</td>
+                <td class="text-nowrap">${actions}</td>
+            </tr>`;
+        }).join('');
+
+        container.innerHTML = `
+            <table class="table table-hover table-sm align-middle mb-0">
+                <caption class="visually-hidden">Lista de usuários do sistema</caption>
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">Nome</th>
+                        <th scope="col">E-mail</th>
+                        <th scope="col">Perfil</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Último acesso</th>
+                        <th scope="col">Ações</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>`;
+    } catch (e) {
+        container.innerHTML = `<p class="text-danger p-3">Erro ao carregar usuários: ${e.message}</p>`;
+    }
+}
+
+function escHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function createUser() {
+    const name  = document.getElementById('newUserName').value.trim();
+    const email = document.getElementById('newUserEmail').value.trim();
+    const role  = document.getElementById('newUserRole').value;
+    const fb    = document.getElementById('feedbackNewUser');
+    const btn   = document.getElementById('btnCreateUser');
+
+    if (!name || !email) {
+        fb.className = 'alert alert-warning'; fb.textContent = 'Nome e e-mail são obrigatórios.'; return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Criando...';
+    fb.className = 'alert d-none';
+
+    try {
+        const res  = await fetch('/api/admin/users', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name, email, role}),
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'success') {
+            fb.className = 'alert alert-success';
+            fb.textContent = data.message || 'Usuário criado com sucesso.';
+            btn.innerHTML = '<i class="fas fa-check me-1"></i>Criado';
+            loadUsers();
+        } else {
+            fb.className = 'alert alert-danger';
+            fb.textContent = data.message || 'Erro ao criar usuário.';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Criar e enviar convite';
+        }
+    } catch (e) {
+        fb.className = 'alert alert-danger'; fb.textContent = 'Erro de conexão.';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Criar e enviar convite';
+    }
+}
+
+function openEditUser(id, name, role, active) {
+    document.getElementById('editUserId').value  = id;
+    document.getElementById('editUserName').value = name;
+    document.getElementById('editUserRole').value = role;
+    document.getElementById('editUserActive').value = active ? 'true' : 'false';
+    const fb = document.getElementById('feedbackEditUser');
+    fb.className = 'alert d-none'; fb.textContent = '';
+    new bootstrap.Modal(document.getElementById('modalEditarUsuario')).show();
+}
+
+async function saveEditUser() {
+    const id     = parseInt(document.getElementById('editUserId').value);
+    const name   = document.getElementById('editUserName').value.trim();
+    const role   = document.getElementById('editUserRole').value;
+    const active = document.getElementById('editUserActive').value === 'true';
+    const fb     = document.getElementById('feedbackEditUser');
+
+    try {
+        const res  = await fetch(`/api/admin/users/${id}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name, role, active}),
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'success') {
+            bootstrap.Modal.getInstance(document.getElementById('modalEditarUsuario'))?.hide();
+            loadUsers();
+        } else {
+            fb.className = 'alert alert-danger'; fb.textContent = data.message || 'Erro.';
+        }
+    } catch (e) {
+        fb.className = 'alert alert-danger'; fb.textContent = 'Erro de conexão.';
+    }
+}
+
+async function reinviteUser(id) {
+    if (!confirm('Reenviar email de ativação para este usuário?')) return;
+    try {
+        const res  = await fetch(`/api/admin/users/${id}/reinvite`, {method: 'POST'});
+        const data = await res.json();
+        alert(data.message || (res.ok ? 'Convite reenviado.' : 'Erro.'));
+        if (res.ok) loadUsers();
+    } catch (e) {
+        alert('Erro de conexão.');
+    }
+}
 </script>
 {% endblock %}
