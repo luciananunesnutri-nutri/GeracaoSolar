@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <!-- Aplica preferências de acessibilidade antes do primeiro paint — evita FOUC -->
     <script>(function(){try{var s=JSON.parse(localStorage.getItem('solar_a11y')||'{}'),fs={sm:'14px',md:'16px',lg:'18px',xl:'20px'},parts=[],cls=[];if(s.fontSize&&s.fontSize!=='md')document.documentElement.style.fontSize=fs[s.fontSize]||'16px';if(s.contrast==='high')parts.push('contrast(1.8)');if(s.contrast==='invert')parts.push('invert(1) hue-rotate(180deg)');if(s.sat==='low')parts.push('saturate(0.3)');if(s.sat==='none')parts.push('saturate(0)');if(s.colorBlind&&s.colorBlind!=='none')parts.push('url(#a11y-'+s.colorBlind+')');if(parts.length)document.documentElement.style.filter=parts.join(' ');if(s.contrast==='invert')cls.push('a11y-mode-invert');if(s.hlLinks)cls.push('a11y-hl-links');if(s.pauseAnim)cls.push('a11y-pause-anim');if(s.hideImages)cls.push('a11y-no-images');if(s.boldText)cls.push('a11y-bold-text');if(s.readMask)cls.push('a11y-read-mask');if(s.magnifier==='1')cls.push('a11y-mag-1');if(s.magnifier==='2')cls.push('a11y-mag-2');if(s.fontFamily&&s.fontFamily!=='default')cls.push('a11y-font-'+s.fontFamily);if(cls.length)document.documentElement.className=(document.documentElement.className+' '+cls.join(' ')).trim();}catch(e){}})();</script>
     <title>{% block title %}Monitoramento Solar{% endblock %}</title>
@@ -237,6 +237,8 @@
             background: #fff;
             border-top: 2px solid #dee2e6;
             box-shadow: 0 -2px 8px rgba(0,0,0,0.08);
+            /* PWA: padding extra para home indicator no iPhone/Android */
+            padding-bottom: env(safe-area-inset-bottom, 0px);
         }
         .mob-nav-item {
             display: flex;
@@ -261,14 +263,20 @@
         .mob-nav-item.mob-collect:hover { color: #6d5200; }
 
         /* ── Responsive ──────────────────────────────────────────────────────────── */
+
+        /* Previne overflow horizontal em toda a página */
+        html, body { overflow-x: hidden; max-width: 100%; }
+
         @media (max-width: 991.98px) {
-            body { padding-bottom: 68px; }
+            /* PWA: espaço para home indicator (safe-area) + bottom nav */
+            body { padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)); }
             .stat-value { font-size: 1.65rem; }
             .stat-card { padding: 14px 8px; }
             .stat-card .fa-2x { font-size: 1.4em !important; margin-bottom: 8px !important; }
             .stat-label { font-size: 0.78rem; }
-            .container-fluid.mt-4 { padding-left: 8px !important; padding-right: 8px !important; }
-            .container-fluid.mt-4 > .row > [class*="col-"] { padding-left: 6px; padding-right: 6px; }
+            /* Corrigido: container usa mt-3, não mt-4 */
+            .container-fluid.mt-3 { padding-left: 8px !important; padding-right: 8px !important; }
+            .container-fluid.mt-3 > .row > [class*="col-"] { padding-left: 6px; padding-right: 6px; }
             #lastUpdate { font-size: 0.75rem; }
             .mb-4 { margin-bottom: 1rem !important; }
             .chart-container { height: 220px; }
@@ -280,6 +288,10 @@
             .profile-grid { grid-template-columns: repeat(3, 1fr) !important; }
             .kpi-value { font-size: 1.35rem !important; }
             .kpi-label { font-size: 0.65rem !important; }
+            /* Tabelas: scroll horizontal dentro do card, sem overflow da página */
+            .table-responsive { -webkit-overflow-scrolling: touch; }
+            /* Imagens e elementos largos: nunca ultrapassam o viewport */
+            img, canvas, svg, iframe { max-width: 100%; }
         }
 
         @media (max-width: 575.98px) {
@@ -367,7 +379,8 @@
         @media (max-width: 991.98px) {
             .a11y-float-btn {
                 top: auto;
-                bottom: 76px;   /* acima da bottom nav (68px) + 8px de margem */
+                /* acima da bottom nav + home indicator (safe-area) */
+                bottom: calc(76px + env(safe-area-inset-bottom, 0px));
                 transform: none;
             }
             .a11y-float-btn[aria-expanded="true"] { right: 290px; }
