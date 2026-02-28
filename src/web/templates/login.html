@@ -87,6 +87,15 @@
                 </form>
 
                 <div class="text-center">
+                    <button type="button"
+                            class="btn btn-link btn-sm text-muted p-0 text-decoration-none"
+                            data-bs-toggle="modal"
+                            data-bs-target="#modalEsqueciSenha">
+                        <i class="fas fa-question-circle me-1" aria-hidden="true"></i>Esqueci minha senha
+                    </button>
+                </div>
+
+                <div class="text-center mt-2">
                     <a href="/" class="text-muted small">
                         <i class="fas fa-arrow-left me-1" aria-hidden="true"></i>Voltar ao Dashboard
                     </a>
@@ -161,6 +170,49 @@
     </div>
 </div>
 
+<!-- ── Modal: Esqueci minha senha ──────────────────────────────────────────── -->
+<div class="modal fade" id="modalEsqueciSenha" tabindex="-1"
+     aria-labelledby="modalEsqueciSenhaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+            <div class="modal-header bg-success text-white">
+                <h2 class="modal-title h5 mb-0" id="modalEsqueciSenhaLabel">
+                    <i class="fas fa-unlock-alt me-2" aria-hidden="true"></i>Recuperar senha
+                </h2>
+                <button type="button" class="btn-close btn-close-white"
+                        data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+
+            <div class="modal-body p-4">
+                <p class="text-muted small mb-3">
+                    Informe seu e-mail cadastrado. Você receberá um link para criar uma nova senha
+                    (válido por 1 hora).
+                </p>
+
+                <div id="resetFeedback" class="alert d-none" role="alert" aria-live="polite"></div>
+
+                <div class="mb-3">
+                    <label for="resetEmail" class="form-label fw-semibold">
+                        <i class="fas fa-envelope me-1" aria-hidden="true"></i>E-mail
+                    </label>
+                    <input type="email" class="form-control" id="resetEmail"
+                           autocomplete="email" placeholder="seu@email.com" required>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success fw-semibold" id="btnReset"
+                        onclick="submitReset()">
+                    <i class="fas fa-paper-plane me-1" aria-hidden="true"></i>Enviar link
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -225,17 +277,72 @@ async function submitRegister() {
     }
 }
 
-// Limpar modal ao fechar
+async function submitReset() {
+    const email = document.getElementById('resetEmail').value.trim();
+    const fb    = document.getElementById('resetFeedback');
+    const btn   = document.getElementById('btnReset');
+
+    if (!email) {
+        fb.className = 'alert alert-warning';
+        fb.textContent = 'Informe seu e-mail.';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Enviando...';
+    fb.className = 'alert d-none';
+
+    try {
+        const res  = await fetch('/forgot-password', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ email }),
+        });
+        const data = await res.json();
+
+        if (data.status === 'success') {
+            fb.className = 'alert alert-success';
+            fb.textContent = data.message;
+            document.getElementById('resetEmail').value = '';
+            btn.innerHTML = '<i class="fas fa-check me-1"></i>Enviado';
+        } else {
+            fb.className = 'alert alert-danger';
+            fb.textContent = data.message || 'Erro ao processar solicitação.';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Enviar link';
+        }
+    } catch (e) {
+        fb.className = 'alert alert-danger';
+        fb.textContent = 'Erro de conexão. Tente novamente.';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Enviar link';
+    }
+}
+
+// Limpar modais ao fechar
 document.addEventListener('DOMContentLoaded', function () {
-    const modal = document.getElementById('modalSolicitarAcesso');
-    if (modal) {
-        modal.addEventListener('hidden.bs.modal', function () {
+    const modalAcesso = document.getElementById('modalSolicitarAcesso');
+    if (modalAcesso) {
+        modalAcesso.addEventListener('hidden.bs.modal', function () {
             document.getElementById('regName').value  = '';
             document.getElementById('regEmail').value = '';
             const fb  = document.getElementById('registerFeedback');
             fb.className = 'alert d-none';
             fb.textContent = '';
             const btn = document.getElementById('btnRegister');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Enviar link';
+        });
+    }
+
+    const modalReset = document.getElementById('modalEsqueciSenha');
+    if (modalReset) {
+        modalReset.addEventListener('hidden.bs.modal', function () {
+            document.getElementById('resetEmail').value = '';
+            const fb  = document.getElementById('resetFeedback');
+            fb.className = 'alert d-none';
+            fb.textContent = '';
+            const btn = document.getElementById('btnReset');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Enviar link';
         });

@@ -11,7 +11,7 @@ auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.before_app_request
 def enforce_password_change():
-    allowed = {'auth.change_password', 'auth.logout', 'static'}
+    allowed = {'auth.change_password', 'auth.logout', 'auth.reset_password', 'static'}
     if (
         current_user.is_authenticated
         and current_user.must_change_password
@@ -173,6 +173,78 @@ def change_password():
         session.close()
 
 
+# ── Recuperação de senha ──────────────────────────────────────────────────────
+
+@auth_bp.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    """Recebe e-mail e envia link de redefinição de senha."""
+    data  = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip().lower()
+
+    if not email or '@' not in email:
+        return jsonify({'status': 'error', 'message': 'E-mail inválido'}), 400
+
+    from ..database.models import db, User
+    session = db.get_session()
+    try:
+        user = session.query(User).filter_by(email=email, active=True).first()
+        # Não revela se o e-mail existe ou não — resposta sempre idêntica
+        if user:
+            token   = secrets.token_urlsafe(32)
+            expires = datetime.now() + timedelta(hours=1)
+            user.invite_token     = token
+            user.token_expires_at = expires
+            session.commit()
+            _send_reset_email(user, request.host_url)
+        return jsonify({
+            'status': 'success',
+            'message': 'Se este e-mail estiver cadastrado, você receberá um link em instantes.',
+        })
+    except Exception as e:
+        session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        session.close()
+
+
+@auth_bp.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    from ..database.models import db, User
+    session = db.get_session()
+    try:
+        user = session.query(User).filter(
+            User.invite_token == token,
+            User.token_expires_at > datetime.now(),
+        ).first()
+
+        if not user:
+            flash('Link de redefinição inválido ou expirado. Solicite um novo.', 'danger')
+            return redirect(url_for('auth.login'))
+
+        if request.method == 'GET':
+            return render_template('reset_password.html', token=token)
+
+        # POST — salva nova senha
+        senha  = request.form.get('password', '')
+        senha2 = request.form.get('password2', '')
+        if len(senha) < 8:
+            flash('A senha deve ter pelo menos 8 caracteres.', 'danger')
+            return render_template('reset_password.html', token=token)
+        if senha != senha2:
+            flash('As senhas não conferem.', 'danger')
+            return render_template('reset_password.html', token=token)
+
+        user.password_hash      = generate_password_hash(senha)
+        user.invite_token       = None
+        user.token_expires_at   = None
+        user.must_change_password = False
+        session.commit()
+        flash('Senha redefinida com sucesso! Faça login com a nova senha.', 'success')
+        return redirect(url_for('auth.login'))
+    finally:
+        session.close()
+
+
 # ── Helper: envio de email de convite ─────────────────────────────────────────
 
 def _send_invite_email(user, base_url):
@@ -212,3 +284,41 @@ Clique no botão abaixo para definir sua senha e ativar o acesso:</p>
         # Email falha silenciosamente — token ainda está no banco
         from ..utils.logger import logger
         logger.warning(f"Falha ao enviar email de convite para {user.email}: {e}")
+
+
+def _send_reset_email(user, base_url):
+    """Envia email HTML com link de redefinição de senha."""
+    try:
+        from ..alerts.email_sender import EmailSender
+        reset_link = f"{base_url.rstrip('/')}/reset-password/{user.invite_token}"
+        subject = "Redefinição de senha — Monitoramento Solar"
+        body = f"""<html><body style="font-family:sans-serif;color:#212529;padding:24px">
+<h2 style="color:#146c2e">Redefinição de senha</h2>
+<p>Olá, <strong>{user.name}</strong>!</p>
+<p>Recebemos uma solicitação para redefinir a senha da sua conta.
+Clique no botão abaixo para criar uma nova senha:</p>
+<p style="margin:32px 0">
+  <a href="{reset_link}"
+     style="background:#146c2e;color:#fff;padding:14px 28px;border-radius:6px;
+            text-decoration:none;font-weight:600;font-size:1rem">
+    Redefinir minha senha
+  </a>
+</p>
+<p style="color:#595959;font-size:.9rem">
+  Este link é válido por <strong>1 hora</strong>.<br>
+  Se você não solicitou a redefinição, ignore este e-mail — sua senha permanece a mesma.
+</p>
+<hr style="border:none;border-top:1px solid #dee2e6;margin:24px 0">
+<p style="color:#595959;font-size:.8rem">Link direto: {reset_link}</p>
+</body></html>"""
+        sender = EmailSender()
+        sender.send_email(
+            subject=subject,
+            body=body,
+            html=True,
+            recipients=[user.email],
+            email_type='reset_password',
+        )
+    except Exception as e:
+        from ..utils.logger import logger
+        logger.warning(f"Falha ao enviar email de reset para {user.email}: {e}")
