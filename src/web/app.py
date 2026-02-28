@@ -35,6 +35,16 @@ def create_app():
     # Criar admin inicial se não existir
     _ensure_admin_user(config)
 
+    # Injeta chat_enabled em todos os templates (leitura em tempo real do config)
+    @app.context_processor
+    def inject_chat_enabled():
+        try:
+            with open(config_path, 'r', encoding='utf-8') as _f:
+                _cfg = yaml.safe_load(_f)
+            return {'chat_enabled': _cfg.get('claude', {}).get('chat_enabled', True)}
+        except Exception:
+            return {'chat_enabled': True}
+
     # Forçar no-cache em todas as respostas HTML para evitar cache de browser
     @app.after_request
     def add_no_cache_headers(response):

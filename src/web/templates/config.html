@@ -729,6 +729,22 @@
                     Obtenha sua chave de API em <strong>console.anthropic.com</strong>.
                     A chave é armazenada localmente em <code>config/config.yaml</code>.
                 </div>
+
+                <!-- Toggle habilitar/desabilitar Chat IA -->
+                <div class="mb-4 p-3 border rounded" style="background:#f8f9fa">
+                    <div class="form-check form-switch mb-1">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="claudeChatEnabled" style="width:2.5em; height:1.25em;">
+                        <label class="form-check-label fw-semibold fs-6 ms-1" for="claudeChatEnabled">
+                            Habilitar Chat IA
+                        </label>
+                    </div>
+                    <div class="form-text ms-1">
+                        Quando desabilitado, o botão do assistente desaparece para todos os usuários
+                        e chamadas à API retornam erro 503.
+                    </div>
+                </div>
+
                 <div class="row g-3">
                     <div class="col-md-8">
                         <label class="form-label fw-semibold" for="claudeApiKey">Chave de API (api_key)</label>
@@ -1272,8 +1288,9 @@ async function loadAll() {
         if (data.claude) {
             document.getElementById('claudeApiKey').placeholder = data.claude.has_api_key
                 ? '••••••••••••••••••••••••••' : 'sk-ant-…';
-            document.getElementById('claudeModel').value      = data.claude.model      || 'claude-haiku-4-5-20251001';
-            document.getElementById('claudeMaxTokens').value  = data.claude.max_tokens || 1024;
+            document.getElementById('claudeModel').value       = data.claude.model       || 'claude-haiku-4-5-20251001';
+            document.getElementById('claudeMaxTokens').value   = data.claude.max_tokens  || 1024;
+            document.getElementById('claudeChatEnabled').checked = data.claude.chat_enabled !== false;
         }
     } catch (e) { console.error('loadAll:', e); }
 }
@@ -1313,9 +1330,10 @@ async function saveSection(section) {
     } else if (section === 'claude') {
         url  = '/api/config/claude';
         body = {
-            api_key:    document.getElementById('claudeApiKey').value.trim(),
-            model:      document.getElementById('claudeModel').value,
-            max_tokens: parseInt(document.getElementById('claudeMaxTokens').value) || 1024,
+            api_key:      document.getElementById('claudeApiKey').value.trim(),
+            model:        document.getElementById('claudeModel').value,
+            max_tokens:   parseInt(document.getElementById('claudeMaxTokens').value) || 1024,
+            chat_enabled: document.getElementById('claudeChatEnabled').checked,
         };
     }
 

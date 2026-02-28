@@ -111,9 +111,10 @@ def register_routes(app):
                     'tariff_brl': sy.get('tariff_brl', 0.80),
                 },
                 'claude': {
-                    'has_api_key': bool(cl.get('api_key')),
-                    'model':       cl.get('model', 'claude-haiku-4-5-20251001'),
-                    'max_tokens':  cl.get('max_tokens', 1024),
+                    'has_api_key':  bool(cl.get('api_key')),
+                    'model':        cl.get('model', 'claude-haiku-4-5-20251001'),
+                    'max_tokens':   cl.get('max_tokens', 1024),
+                    'chat_enabled': cl.get('chat_enabled', True),
                 },
             })
         except Exception as e:
@@ -291,6 +292,8 @@ def register_routes(app):
                 cl['model'] = data['model'].strip()
             if data.get('max_tokens'):
                 cl['max_tokens'] = int(data['max_tokens'])
+            if 'chat_enabled' in data:
+                cl['chat_enabled'] = bool(data['chat_enabled'])
 
             with open(cfg_path, 'w', encoding='utf-8') as f:
                 yaml.dump(cfg, f, allow_unicode=True, default_flow_style=False)
@@ -311,6 +314,11 @@ def register_routes(app):
                 return jsonify({'status': 'error', 'message': 'Mensagem vazia'}), 400
 
             cfg_path = Path(__file__).parent.parent.parent / "config" / "config.yaml"
+            with open(cfg_path, 'r', encoding='utf-8') as f:
+                _cfg_chat = yaml.safe_load(f)
+            if not _cfg_chat.get('claude', {}).get('chat_enabled', True):
+                return jsonify({'status': 'error', 'message': 'Chat IA desabilitado pelo administrador'}), 503
+
             with open(cfg_path, 'r', encoding='utf-8') as f:
                 cfg = yaml.safe_load(f)
 

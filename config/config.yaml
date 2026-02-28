@@ -10,6 +10,7 @@ apsystems:
   timeout: 30
 claude:
   api_key: YOUR_ANTHROPIC_API_KEY_HERE
+  chat_enabled: true
   max_tokens: 1024
   model: claude-haiku-4-5-20251001
 database:
