@@ -355,7 +355,14 @@
         .a11y-float-btn:hover { background: var(--primary-dark); }
         .a11y-float-btn:focus-visible { outline: 3px solid #ffe066 !important; outline-offset: 3px !important; }
         .a11y-float-btn[aria-expanded="true"] { right: 310px; }
-        @media (max-width: 991.98px) { .a11y-float-btn[aria-expanded="true"] { right: 290px; } }
+        @media (max-width: 991.98px) {
+            .a11y-float-btn {
+                top: auto;
+                bottom: 76px;   /* acima da bottom nav (68px) + 8px de margem */
+                transform: none;
+            }
+            .a11y-float-btn[aria-expanded="true"] { right: 290px; }
+        }
 
         /* ── Painel lateral ───────────────────────────────────────────────────────── */
         .a11y-float-panel {

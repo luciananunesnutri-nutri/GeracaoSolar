@@ -131,13 +131,40 @@
   .change-up   { color: #146c2e; font-weight: 600; }
   .change-down { color: #b02a37; font-weight: 600; }
   .change-flat { color: #595959; }
+
+  /* ── Mobile responsiveness ──────────────────────────────────────────────── */
+  /* Impede overflow horizontal que desloca o botão de acessibilidade */
+  @media (max-width: 991.98px) {
+    /* Cabeçalho: empilha controles abaixo do título em telas pequenas */
+    .insights-header { flex-direction: column; align-items: flex-start !important; }
+    .insights-header .insights-controls { width: 100%; justify-content: flex-start; }
+    .insights-header .insights-controls input[type="date"] { flex: 1; min-width: 0; width: auto !important; }
+
+    /* Seção de saúde: empilha anel + barras verticalmente em telas muito pequenas */
+    .health-ring-wrap { width: 110px; height: 110px; }
+    .hs-val { font-size: 1.4rem !important; }
+
+    /* Títulos de seção menores */
+    .insight-section .section-title { font-size: 0.95rem; }
+
+    /* KPI cards menores */
+    .kpi-card { padding: 0.75rem 0.5rem; }
+  }
+
+  @media (max-width: 575.98px) {
+    /* Empilha anel de saúde + componentes verticalmente */
+    .health-card-row { flex-direction: column; align-items: center !important; }
+    .health-card-row .col-auto,
+    .health-card-row .col { width: 100%; }
+    #healthComponents { margin-top: 0.75rem; }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
 
 <!-- ── Cabeçalho da página + seletor de data ──────────────────────────────── -->
-<div class="d-flex align-items-start justify-content-between gap-2 mb-3 flex-wrap">
+<div class="d-flex align-items-start justify-content-between gap-2 mb-3 flex-wrap insights-header">
   <div>
     <h1 class="fw-semibold mb-0 h5">
       <i class="fas fa-lightbulb me-1" aria-hidden="true" style="color:var(--warning-color);"></i>
@@ -146,7 +173,7 @@
     <p class="text-muted small mb-0 d-none d-sm-block">Análise completa do sistema de monitoramento solar</p>
     <span class="text-muted" style="font-size:0.72rem" id="generatedAt" aria-live="polite"></span>
   </div>
-  <div class="d-flex align-items-center gap-2 flex-shrink-0">
+  <div class="d-flex align-items-center gap-2 insights-controls">
     <!-- Label visível para acessibilidade (3.3.2 A) -->
     <label for="datePicker" class="visually-hidden">Data para análise dos insights</label>
     <input type="date"
@@ -206,7 +233,7 @@
     </h2>
     <div class="card">
       <div class="card-body">
-        <div class="row align-items-center g-3">
+        <div class="row align-items-center g-3 health-card-row">
           <div class="col-auto text-center">
             <div class="health-ring-wrap" role="img" aria-labelledby="healthScoreAriaLabel">
               <canvas id="healthRingChart" width="140" height="140" aria-hidden="true"></canvas>

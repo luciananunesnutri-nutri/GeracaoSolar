@@ -80,14 +80,14 @@
         </div>
 
         <div class="col-6 col-md-3" role="listitem">
-            <article class="card stat-card h-100" aria-labelledby="label-totalEnergy">
-                <i class="fas fa-chart-line fa-2x mb-3" aria-hidden="true" style="color:var(--info-color);"></i>
+            <article class="card stat-card h-100" aria-labelledby="label-economyToday">
+                <i class="fas fa-coins fa-2x mb-3" aria-hidden="true" style="color:var(--warning-color);"></i>
                 <div class="stat-value"
-                     id="totalEnergy"
+                     id="economyToday"
                      aria-live="polite"
                      aria-atomic="true"
-                     aria-describedby="label-totalEnergy">-- kWh</div>
-                <div class="stat-label" id="label-totalEnergy">Total Gerado</div>
+                     aria-describedby="label-economyToday">-- R$</div>
+                <div class="stat-label" id="label-economyToday">Economia Hoje</div>
             </article>
         </div>
     </div>
@@ -828,7 +828,9 @@
                 document.getElementById('peakPower').textContent    = `${data.peak_today.toFixed(0)} W`;
                 document.getElementById('peakEnergy').textContent   = `${data.energy_today.toFixed(2)} kWh`;
                 document.getElementById('peakPowerTime').textContent = data.peak_time ? `Pico às ${data.peak_time}` : '';
-                document.getElementById('totalEnergy').textContent  = `${data.energy_total.toFixed(2)} kWh`;
+                const _economy = (data.energy_today * (data.tariff_brl || 1.0));
+                document.getElementById('economyToday').textContent =
+                    'R$ ' + _economy.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
                 const ts = new Date(data.timestamp);
                 document.getElementById('lastUpdate').textContent = `Atualizado: ${ts.toLocaleTimeString('pt-BR')}`;
                 _todayKwh = data.energy_today;

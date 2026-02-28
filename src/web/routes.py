@@ -441,6 +441,11 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             active_hours = [w for w in hourly_watts if w > 0]
             average_today = sum(active_hours) / len(active_hours) if active_hours else 0
 
+            cfg_path = Path(__file__).parent.parent.parent / "config" / "config.yaml"
+            with open(cfg_path, 'r', encoding='utf-8') as _f:
+                _cfg = yaml.safe_load(_f)
+            tariff_brl = float(_cfg.get('system', {}).get('tariff_brl', 1.0))
+
             response = {
                 'status': 'success',
                 'timestamp': (aggregate or data[-1]).timestamp.isoformat(),
@@ -449,7 +454,8 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
                 'energy_total': (aggregate.energy_kwh_total or 0) if aggregate else 0,
                 'peak_today': peak_today,
                 'peak_time': peak_time,
-                'average_today': average_today
+                'average_today': average_today,
+                'tariff_brl': tariff_brl,
             }
 
             return jsonify(response)
