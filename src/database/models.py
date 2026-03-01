@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from flask_login import UserMixin
 import enum
 from pathlib import Path
+import os
 import yaml
 
 Base = declarative_base()
@@ -239,16 +240,23 @@ class Database:
     """Gerenciador de banco de dados."""
 
     def __init__(self, db_path: str = None):
-        if db_path is None:
-            config_path = Path(__file__).parent.parent.parent / "config" / "config.yaml"
-            with open(config_path, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f)
-            db_path = config['database']['path']
+        db_url = os.environ.get('DATABASE_URL')
 
-        # Criar diretório se não existir
-        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        if db_url:
+            # Render fornece postgres:// mas SQLAlchemy 2.x exige postgresql://
+            if db_url.startswith('postgres://'):
+                db_url = db_url.replace('postgres://', 'postgresql://', 1)
+            self.engine = create_engine(db_url, echo=False)
+        else:
+            # Fallback para SQLite local (desenvolvimento)
+            if db_path is None:
+                config_path = Path(__file__).parent.parent.parent / "config" / "config.yaml"
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = yaml.safe_load(f)
+                db_path = config['database']['path']
+            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+            self.engine = create_engine(f'sqlite:///{db_path}', echo=False)
 
-        self.engine = create_engine(f'sqlite:///{db_path}', echo=False)
         Base.metadata.create_all(self.engine)
         self.Session = sessionmaker(bind=self.engine)
 

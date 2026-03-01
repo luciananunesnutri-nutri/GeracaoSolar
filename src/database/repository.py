@@ -1,6 +1,6 @@
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Optional
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, cast, Date
 from .models import (
     db, GenerationData, Statistics, Alert, SystemStatusModel,
     EcuTelemetry, InverterBatchData, MeterData, InverterSummary,
@@ -181,7 +181,7 @@ class Repository:
                 r.date for r in session.query(EcuTelemetry.date).distinct().all()
             }
             hourly_rows = session.query(
-                func.date(GenerationData.timestamp).label('d')
+                cast(GenerationData.timestamp, Date).label('d')
             ).filter(GenerationData.panel_id == 'hourly').distinct().all()
             hourly_dates = set()
             for r in hourly_rows:

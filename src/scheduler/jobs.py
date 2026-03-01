@@ -467,12 +467,13 @@ def cleanup_old_data():
         finally:
             session.close()
 
-        # Otimizar banco de dados (VACUUM)
-        logger.info("Otimizando banco de dados...")
-        from sqlalchemy import text
-        with db.engine.connect() as conn:
-            conn.execute(text("VACUUM"))
-            conn.commit()
+        # Otimizar banco de dados (VACUUM — apenas SQLite)
+        if 'sqlite' in str(db.engine.url):
+            logger.info("Otimizando banco de dados (VACUUM)...")
+            from sqlalchemy import text
+            with db.engine.connect() as conn:
+                conn.execute(text("VACUUM"))
+                conn.commit()
 
         logger.info("Limpeza de dados concluída com sucesso")
         logger.info("=" * 50)
