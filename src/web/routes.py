@@ -78,11 +78,9 @@ def register_routes(app):
     def api_config_all():
         """Retorna todas as configurações do sistema."""
         try:
-            cred_path = Path(__file__).parent.parent.parent / "config" / "credentials.yaml"
             cfg_path  = Path(__file__).parent.parent.parent / "config" / "config.yaml"
 
-            with open(cred_path, 'r', encoding='utf-8') as f:
-                creds = yaml.safe_load(f)
+            creds = _load_credentials()
             with open(cfg_path, 'r', encoding='utf-8') as f:
                 cfg = yaml.safe_load(f)
 
@@ -146,8 +144,7 @@ def register_routes(app):
         try:
             data = request.get_json()
             cred_path = Path(__file__).parent.parent.parent / "config" / "credentials.yaml"
-            with open(cred_path, 'r', encoding='utf-8') as f:
-                creds = yaml.safe_load(f)
+            creds = _load_credentials()
 
             if 'apsystems' not in creds:
                 creds['apsystems'] = {}
@@ -1074,9 +1071,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
         try:
             data = request.get_json()
             cred_path = Path(__file__).parent.parent.parent / "config" / "credentials.yaml"
-
-            with open(cred_path, 'r', encoding='utf-8') as f:
-                creds = yaml.safe_load(f)
+            creds = _load_credentials()
 
             if 'email' not in creds:
                 creds['email'] = {}
