@@ -1,3 +1,4 @@
+import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -12,17 +13,27 @@ class EmailSender:
     """Gerenciador de envio de emails."""
 
     def __init__(self):
-        # Carregar credenciais
+        # Carregar credenciais (arquivo + variáveis de ambiente)
         cred_path = Path(__file__).parent.parent.parent / "config" / "credentials.yaml"
-        with open(cred_path, 'r', encoding='utf-8') as f:
-            credentials = yaml.safe_load(f)
+        try:
+            with open(cred_path, 'r', encoding='utf-8') as f:
+                credentials = yaml.safe_load(f) or {}
+        except FileNotFoundError:
+            credentials = {}
 
-        self.email_config = credentials['email']
-        self.smtp_host = self.email_config['smtp_host']
-        self.smtp_port = self.email_config['smtp_port']
-        self.sender_email = self.email_config['sender_email']
-        self.sender_password = self.email_config['sender_password']
-        self.recipient_email = self.email_config['recipient_email']
+        em = credentials.setdefault('email', {})
+        em['sender_email'] = os.environ.get('EMAIL_SENDER') or em.get('sender_email', '')
+        em['sender_password'] = os.environ.get('EMAIL_PASSWORD') or em.get('sender_password', '')
+        em['recipient_email'] = os.environ.get('EMAIL_RECIPIENT') or em.get('recipient_email', '')
+        em['smtp_host'] = os.environ.get('SMTP_HOST') or em.get('smtp_host', 'smtp.gmail.com')
+        em['smtp_port'] = int(os.environ.get('SMTP_PORT', 0) or em.get('smtp_port', 587))
+
+        self.email_config = em
+        self.smtp_host = em['smtp_host']
+        self.smtp_port = em['smtp_port']
+        self.sender_email = em['sender_email']
+        self.sender_password = em['sender_password']
+        self.recipient_email = em['recipient_email']
 
     def _get_recipients(self, alerts_only: bool = False, reports_only: bool = False) -> list:
         """Retorna lista de emails dos destinatários ativos no banco.

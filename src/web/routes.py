@@ -20,8 +20,26 @@ _collect_state = {'running': False, 'last_result': None, 'last_run': None}
 
 def _load_credentials():
     cred_path = Path(__file__).parent.parent.parent / "config" / "credentials.yaml"
-    with open(cred_path, 'r', encoding='utf-8') as f:
-        return yaml.safe_load(f)
+    try:
+        with open(cred_path, 'r', encoding='utf-8') as f:
+            creds = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        creds = {}
+
+    # Variáveis de ambiente sobrescrevem o arquivo (para deploy em nuvem)
+    ap = creds.setdefault('apsystems', {})
+    ap['app_id'] = os.environ.get('APSYSTEMS_APP_ID') or ap.get('app_id')
+    ap['app_secret'] = os.environ.get('APSYSTEMS_APP_SECRET') or ap.get('app_secret')
+    ap['sid'] = os.environ.get('APSYSTEMS_SID') or ap.get('sid')
+
+    em = creds.setdefault('email', {})
+    em['sender_email'] = os.environ.get('EMAIL_SENDER') or em.get('sender_email')
+    em['sender_password'] = os.environ.get('EMAIL_PASSWORD') or em.get('sender_password')
+    em['recipient_email'] = os.environ.get('EMAIL_RECIPIENT') or em.get('recipient_email')
+    em['smtp_host'] = os.environ.get('SMTP_HOST') or em.get('smtp_host', 'smtp.gmail.com')
+    em['smtp_port'] = int(os.environ.get('SMTP_PORT', 0) or em.get('smtp_port', 587))
+
+    return creds
 
 
 def _make_api_client():
