@@ -1,6 +1,7 @@
 from flask import Flask, render_template, jsonify, request
 from datetime import date, datetime, timedelta
 from pathlib import Path
+import os
 import yaml
 from ..database.repository import Repository
 from ..alerts.alert_manager import AlertManager
@@ -16,6 +17,14 @@ def create_app():
     config_path = Path(__file__).parent.parent.parent / "config" / "config.yaml"
     with open(config_path, 'r', encoding='utf-8') as f:
         config = yaml.safe_load(f)
+
+    # Variáveis de ambiente sobrescrevem o config.yaml (para deploy em nuvem)
+    if os.environ.get('SECRET_KEY'):
+        config['auth']['secret_key'] = os.environ['SECRET_KEY']
+    if os.environ.get('ANTHROPIC_API_KEY'):
+        config.setdefault('claude', {})['api_key'] = os.environ['ANTHROPIC_API_KEY']
+    if os.environ.get('PORT'):
+        config['web']['port'] = int(os.environ['PORT'])
 
     app.config['DEBUG'] = config['web']['debug']
     app.secret_key = config['auth']['secret_key']

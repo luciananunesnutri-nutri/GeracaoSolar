@@ -6,6 +6,7 @@ from ..alerts.alert_manager import AlertManager
 from ..analysis.statistics import StatisticsCalculator
 from ..utils.logger import logger
 from .decorators import role_required
+import os
 import yaml
 import threading
 from pathlib import Path
@@ -323,7 +324,7 @@ def register_routes(app):
                 cfg = yaml.safe_load(f)
 
             cl = cfg.get('claude', {})
-            api_key   = cl.get('api_key', '')
+            api_key   = os.environ.get('ANTHROPIC_API_KEY') or cl.get('api_key', '')
             model     = cl.get('model', 'claude-haiku-4-5-20251001')
             max_tokens = int(cl.get('max_tokens', 1024))
 
