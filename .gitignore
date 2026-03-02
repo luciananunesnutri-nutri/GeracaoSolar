@@ -1,5 +1,20 @@
 # Credenciais e configurações sensíveis
 config/credentials.yaml
+Credenciais*.txt
+*.key
+*.key.pub
+
+# Arquivos Fly.io/Docker (não necessários para Render)
+Dockerfile
+.dockerignore
+entrypoint.sh
+fly.toml
+
+# Outros
+.claude/
+*.pdf
+*.rar
+*.zip
 
 # Banco de dados
 data/*.db
