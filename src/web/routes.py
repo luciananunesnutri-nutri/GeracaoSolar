@@ -55,6 +55,22 @@ def _make_api_client():
 def register_routes(app):
     """Registra todas as rotas da aplicação."""
 
+    @app.route('/api/debug-env')
+    def debug_env():
+        """Diagnóstico temporário: verifica se env vars estão definidas."""
+        creds = _load_credentials()
+        ap = creds.get('apsystems', {})
+        return jsonify({
+            'APSYSTEMS_APP_ID_set': bool(os.environ.get('APSYSTEMS_APP_ID')),
+            'APSYSTEMS_APP_SECRET_set': bool(os.environ.get('APSYSTEMS_APP_SECRET')),
+            'APSYSTEMS_SID_set': bool(os.environ.get('APSYSTEMS_SID')),
+            'creds_app_id_type': type(ap.get('app_id')).__name__,
+            'creds_app_secret_type': type(ap.get('app_secret')).__name__,
+            'creds_sid_type': type(ap.get('sid')).__name__,
+            'creds_app_id_len': len(ap.get('app_id') or ''),
+            'creds_app_secret_len': len(ap.get('app_secret') or ''),
+        })
+
     @app.route('/')
     def index():
         """Dashboard principal."""
