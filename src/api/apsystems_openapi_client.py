@@ -18,9 +18,9 @@ class APSystemsOpenAPIClient:
 
     def __init__(self, app_id: str, app_secret: str, system_id: str):
         self.base_url = "https://api.apsystemsema.com:9282"
-        self.app_id = app_id
-        self.app_secret = app_secret
-        self.system_id = system_id
+        self.app_id = app_id or ''
+        self.app_secret = app_secret or ''
+        self.system_id = system_id or ''
         self.signature_method = "HmacSHA256"
 
     def _calculate_signature(self, timestamp: str, nonce: str, request_path: str, http_method: str) -> str:
