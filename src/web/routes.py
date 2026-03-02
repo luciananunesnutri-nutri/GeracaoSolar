@@ -28,9 +28,9 @@ def _load_credentials():
 
     # Variáveis de ambiente sobrescrevem o arquivo (para deploy em nuvem)
     ap = creds.setdefault('apsystems', {})
-    ap['app_id'] = os.environ.get('APSYSTEMS_APP_ID') or ap.get('app_id')
-    ap['app_secret'] = os.environ.get('APSYSTEMS_APP_SECRET') or ap.get('app_secret')
-    ap['sid'] = os.environ.get('APSYSTEMS_SID') or ap.get('sid')
+    ap['app_id'] = os.environ.get('APSYSTEMS_APP_ID') or ap.get('app_id') or ''
+    ap['app_secret'] = os.environ.get('APSYSTEMS_APP_SECRET') or ap.get('app_secret') or ''
+    ap['sid'] = os.environ.get('APSYSTEMS_SID') or ap.get('sid') or ''
 
     em = creds.setdefault('email', {})
     em['sender_email'] = os.environ.get('EMAIL_SENDER') or em.get('sender_email')
