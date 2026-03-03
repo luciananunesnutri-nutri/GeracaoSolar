@@ -1109,12 +1109,13 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
 
     @app.route('/api/energy/prev-day')
     def api_energy_prev_day():
-        """Retorna geração do dia anterior usando a mesma fonte que /api/current
-        (MAX de energy_kwh_daily na generation_data com panel_id IS NULL)."""
+        """Retorna geração do dia anterior. Tenta banco, fallback para API ao vivo."""
         try:
             from sqlalchemy import func as _func
             from ..database.models import db as _db, GenerationData as _GD
             yesterday = date.today() - timedelta(days=1)
+
+            # Tentar banco de dados primeiro
             session = _db.get_session()
             try:
                 result = session.query(_func.max(_GD.energy_kwh_daily)).filter(
@@ -1125,7 +1126,22 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
                 kwh = float(result or 0)
             finally:
                 session.close()
-            return jsonify({'status': 'success', 'date': yesterday.isoformat(), 'kwh': kwh})
+
+            source = 'database'
+
+            # Fallback: se banco não tem dados, buscar da API
+            if kwh == 0:
+                try:
+                    client = _make_api_client()
+                    month_str = yesterday.strftime('%Y-%m')
+                    daily_list = client.get_system_energy('daily', month_str)
+                    if daily_list and len(daily_list) >= yesterday.day:
+                        kwh = float(daily_list[yesterday.day - 1] or 0)
+                        source = 'live_api'
+                except Exception as api_err:
+                    logger.warning(f"Fallback API para prev-day falhou: {api_err}")
+
+            return jsonify({'status': 'success', 'date': yesterday.isoformat(), 'kwh': kwh, 'source': source})
         except Exception as e:
             logger.error(f"Erro ao buscar energia do dia anterior: {e}")
             return jsonify({'status': 'error', 'message': str(e)}), 500

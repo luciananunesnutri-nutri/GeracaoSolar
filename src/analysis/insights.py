@@ -153,6 +153,34 @@ def generate_insights(repository=None, target_date=None) -> dict:
     for rec in (yesterday_summaries or []):
         for ch in (rec.channels or {}).values():
             yesterday_kwh += float(ch.get('today') or 0)
+
+    # Fallback: se banco não tem dados de ontem, buscar da API (daily energy)
+    if yesterday_kwh == 0.0:
+        try:
+            from ..api.apsystems_openapi_client import APSystemsOpenAPIClient
+            import os
+            _cred_path = Path(__file__).parent.parent.parent / "config" / "credentials.yaml"
+            try:
+                with open(_cred_path, 'r', encoding='utf-8') as _f:
+                    _creds = yaml.safe_load(_f) or {}
+            except FileNotFoundError:
+                _creds = {}
+            _ap = _creds.get('apsystems', {})
+            _app_id = os.environ.get('APSYSTEMS_APP_ID') or _ap.get('app_id') or ''
+            _app_secret = os.environ.get('APSYSTEMS_APP_SECRET') or _ap.get('app_secret') or ''
+            _sid = os.environ.get('APSYSTEMS_SID') or _ap.get('sid') or ''
+
+            if _app_id and _app_secret and _sid:
+                client = APSystemsOpenAPIClient(_app_id, _app_secret, _sid)
+                # get_system_energy('daily', 'YYYY-MM') retorna lista de kWh por dia
+                month_str = yesterday.strftime('%Y-%m')
+                daily_list = client.get_system_energy('daily', month_str)
+                if daily_list and len(daily_list) >= yesterday.day:
+                    yesterday_kwh = float(daily_list[yesterday.day - 1] or 0)
+        except Exception as _e:
+            from ..utils.logger import logger
+            logger.warning(f"Fallback API para yesterday_kwh falhou: {_e}")
+
     day_change_pct = None
     if yesterday_kwh > 0:
         day_change_pct = round(((today_kwh - yesterday_kwh) / yesterday_kwh) * 100, 1)
