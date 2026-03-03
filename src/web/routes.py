@@ -14,6 +14,10 @@ from pathlib import Path
 # Cache em memória para dados históricos da API (evita chamadas repetidas)
 _api_cache = {}  # key -> {'value': ..., 'date': date}
 
+# Cache para dados em tempo real da API (TTL curto)
+_realtime_cache = {}  # key -> {'value': ..., 'timestamp': datetime}
+_REALTIME_CACHE_TTL = 300  # 5 minutos em segundos
+
 # Estado da coleta em andamento
 _collect_state = {'running': False, 'last_result': None, 'last_run': None}
 
@@ -430,34 +434,127 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
 
     @app.route('/api/current')
     def api_current():
-        """Retorna dados em tempo real."""
+        """Retorna dados em tempo real, buscando da API APSystems com cache de 5 min."""
         try:
-            repository = Repository()
+            import json as _json
+            from datetime import datetime as _dt
 
-            # Buscar dados mais recentes
-            today = date.today()
+            now = _dt.now()
+            today = now.date()
+            today_str = today.strftime('%Y-%m-%d')
+
+            cfg_path = Path(__file__).parent.parent.parent / "config" / "config.yaml"
+            with open(cfg_path, 'r', encoding='utf-8') as _f:
+                _cfg = yaml.safe_load(_f)
+            tariff_brl = float(_cfg.get('system', {}).get('tariff_brl', 1.0))
+
+            # ── Tentar dados ao vivo da API (com cache de 5 min) ──────────
+            cache_key = f'realtime_{today_str}'
+            cached = _realtime_cache.get(cache_key)
+            cache_valid = (
+                cached
+                and cached.get('timestamp')
+                and (now - cached['timestamp']).total_seconds() < _REALTIME_CACHE_TTL
+            )
+
+            if cache_valid:
+                live = cached['value']
+                logger.debug("Usando dados em tempo real do cache")
+            else:
+                live = None
+                try:
+                    client = _make_api_client()
+
+                    # Buscar summary (energy_today, energy_total)
+                    summary = client.get_system_summary()
+
+                    # Buscar inversores para obter ECU ID
+                    inverters = client.get_system_inverters()
+                    ecu_id = inverters[0].get('eid') if inverters else None
+
+                    # Buscar telemetria minutely da ECU (potência atual em tempo real)
+                    ecu_telemetry = None
+                    if ecu_id:
+                        try:
+                            ecu_telemetry = client.get_ecu_energy(ecu_id, 'minutely', today_str)
+                        except Exception as e:
+                            logger.warning(f"Erro ao buscar telemetria ECU ao vivo: {e}")
+
+                    live = {
+                        'summary': summary,
+                        'ecu_telemetry': ecu_telemetry,
+                    }
+                    _realtime_cache[cache_key] = {'value': live, 'timestamp': now}
+                    logger.info("Dados em tempo real obtidos da API APSystems")
+
+                except Exception as e:
+                    logger.warning(f"Falha ao buscar dados ao vivo da API: {e}")
+
+            # ── Calcular resposta ─────────────────────────────────────────
+            if live:
+                summary = live.get('summary', {})
+                ecu_telemetry = live.get('ecu_telemetry')
+
+                energy_today = float(summary.get('today', 0) or 0)
+                energy_total = float(summary.get('lifetime', 0) or 0)
+
+                # Potência atual e pico a partir da telemetria minutely
+                current_power = 0
+                peak_today = 0
+                peak_time = None
+                average_today = 0
+
+                if ecu_telemetry:
+                    power_list = ecu_telemetry.get('power', [])
+                    times_list = ecu_telemetry.get('time', [])
+
+                    if power_list:
+                        # Potência atual = último valor da série
+                        current_power = power_list[-1] if power_list else 0
+
+                        # Pico do dia
+                        peak_today = max(power_list)
+                        peak_idx = power_list.index(peak_today)
+                        if times_list and peak_idx < len(times_list):
+                            peak_time = times_list[peak_idx]
+
+                        # Média (apenas horas com geração)
+                        active = [w for w in power_list if w > 0]
+                        average_today = sum(active) / len(active) if active else 0
+
+                response = {
+                    'status': 'success',
+                    'timestamp': now.isoformat(),
+                    'current_power': current_power,
+                    'energy_today': energy_today,
+                    'energy_total': energy_total,
+                    'peak_today': peak_today,
+                    'peak_time': peak_time,
+                    'average_today': round(average_today, 1),
+                    'tariff_brl': tariff_brl,
+                    'source': 'live_api',
+                }
+                return jsonify(response)
+
+            # ── Fallback: dados do banco de dados ─────────────────────────
+            repository = Repository()
             data = repository.get_generation_data_for_period(today, today)
 
             if not data:
                 return jsonify({
                     'status': 'no_data',
-                    'message': 'Sem dados disponíveis'
+                    'message': 'Sem dados disponíveis. Aguardando coleta ou API indisponível.'
                 }), 404
 
-            # Registro agregado mais recente (última coleta do dia) com totais de energia
             aggregate = next((d for d in reversed(data) if d.panel_id is None and d.energy_kwh_total is not None), None)
 
-            # Potência atual = último registro horário até a hora corrente
-            from datetime import datetime as _dt
-            current_hour = _dt.now().hour
+            current_hour = now.hour
             hourly_records = [d for d in data if d.panel_id == 'hourly' and d.timestamp.hour <= current_hour]
             current_power = hourly_records[-1].power_watts if hourly_records else 0
 
-            # Pico calculado preferencialmente da telemetria minutely (mais preciso)
             hourly_watts = [d.power_watts for d in data if d.panel_id == 'hourly']
             peak_hourly = max(hourly_watts) if hourly_watts else 0
 
-            import json as _json
             telemetry = repository.get_latest_ecu_telemetry_for_date(today)
             peak_time = None
             if telemetry and telemetry.time_series:
@@ -473,18 +570,12 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
                     peak_today = peak_hourly
             else:
                 peak_today = peak_hourly
-                # Fallback: hora do pico a partir dos registros horários
                 peak_hr = max((d for d in data if d.panel_id == 'hourly'), key=lambda d: d.power_watts, default=None)
                 if peak_hr:
                     peak_time = peak_hr.timestamp.strftime('%H:%M')
 
             active_hours = [w for w in hourly_watts if w > 0]
             average_today = sum(active_hours) / len(active_hours) if active_hours else 0
-
-            cfg_path = Path(__file__).parent.parent.parent / "config" / "config.yaml"
-            with open(cfg_path, 'r', encoding='utf-8') as _f:
-                _cfg = yaml.safe_load(_f)
-            tariff_brl = float(_cfg.get('system', {}).get('tariff_brl', 1.0))
 
             response = {
                 'status': 'success',
@@ -496,6 +587,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
                 'peak_time': peak_time,
                 'average_today': average_today,
                 'tariff_brl': tariff_brl,
+                'source': 'database',
             }
 
             return jsonify(response)
@@ -765,13 +857,60 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
     def api_telemetry():
         """Retorna telemetria minutely da ECU para uma data. Parâmetro ?date=YYYY-MM-DD (padrão: hoje)."""
         try:
-            repository = Repository()
+            from datetime import datetime as _dt
+
             date_str = request.args.get('date')
             if date_str:
                 target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             else:
                 target_date = date.today()
 
+            is_today = (target_date == date.today())
+
+            # Para hoje, tentar dados ao vivo da API (reutilizar cache do /api/current)
+            if is_today:
+                now = _dt.now()
+                today_str = target_date.strftime('%Y-%m-%d')
+                cache_key = f'realtime_{today_str}'
+                cached = _realtime_cache.get(cache_key)
+                cache_valid = (
+                    cached
+                    and cached.get('timestamp')
+                    and (now - cached['timestamp']).total_seconds() < _REALTIME_CACHE_TTL
+                )
+
+                live_telemetry = None
+                if cache_valid and cached['value'].get('ecu_telemetry'):
+                    live_telemetry = cached['value']['ecu_telemetry']
+                else:
+                    try:
+                        client = _make_api_client()
+                        inverters = client.get_system_inverters()
+                        ecu_id = inverters[0].get('eid') if inverters else None
+                        if ecu_id:
+                            live_telemetry = client.get_ecu_energy(ecu_id, 'minutely', today_str)
+                            # Atualizar cache
+                            if cache_key not in _realtime_cache:
+                                _realtime_cache[cache_key] = {'value': {}, 'timestamp': now}
+                            _realtime_cache[cache_key]['value']['ecu_telemetry'] = live_telemetry
+                            _realtime_cache[cache_key]['timestamp'] = now
+                    except Exception as e:
+                        logger.warning(f"Falha ao buscar telemetria ao vivo: {e}")
+
+                if live_telemetry:
+                    return jsonify({
+                        'status': 'success',
+                        'ecu_id': '',
+                        'date': target_date.isoformat(),
+                        'time': live_telemetry.get('time', []),
+                        'power': [float(v) if v else 0 for v in live_telemetry.get('power', [])],
+                        'energy': [float(v) if v else 0 for v in live_telemetry.get('energy', [])],
+                        'today_total': live_telemetry.get('today'),
+                        'source': 'live_api',
+                    })
+
+            # Fallback: dados do banco
+            repository = Repository()
             record = repository.get_latest_ecu_telemetry_for_date(target_date)
             if not record or not record.time_series:
                 return jsonify({'status': 'no_data', 'message': 'Telemetria minutely não disponível'}), 404
@@ -784,7 +923,8 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
                 'time': ts.get('time', []),
                 'power': [float(v) if v else 0 for v in ts.get('power', [])],
                 'energy': [float(v) if v else 0 for v in ts.get('energy', [])],
-                'today_total': ts.get('today')
+                'today_total': ts.get('today'),
+                'source': 'database',
             })
         except Exception as e:
             logger.error(f"Erro ao buscar telemetria: {e}")
@@ -842,10 +982,48 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
     def api_energy_totals():
         """Retorna totais de energia: mês, ano e lifetime do sistema."""
         try:
-            repository = Repository()
+            from datetime import datetime as _dt
+
             today = date.today()
 
-            # Somar mês e ano diretamente do inverter_summary (mais recente por inversor)
+            # ── Tentar dados ao vivo da API (summary tem month/year/lifetime) ──
+            now = _dt.now()
+            today_str = today.strftime('%Y-%m-%d')
+            cache_key = f'realtime_{today_str}'
+            cached = _realtime_cache.get(cache_key)
+            cache_valid = (
+                cached
+                and cached.get('timestamp')
+                and (now - cached['timestamp']).total_seconds() < _REALTIME_CACHE_TTL
+            )
+
+            live_summary = None
+            if cache_valid:
+                live_summary = cached['value'].get('summary')
+            else:
+                try:
+                    client = _make_api_client()
+                    live_summary = client.get_system_summary()
+                    # Atualizar cache
+                    if cache_key not in _realtime_cache:
+                        _realtime_cache[cache_key] = {'value': {}, 'timestamp': now}
+                    _realtime_cache[cache_key]['value']['summary'] = live_summary
+                    _realtime_cache[cache_key]['timestamp'] = now
+                except Exception as e:
+                    logger.warning(f"Falha ao buscar summary ao vivo: {e}")
+
+            if live_summary:
+                return jsonify({
+                    'status': 'success',
+                    'month_kwh': round(float(live_summary.get('month', 0) or 0), 2),
+                    'year_kwh': round(float(live_summary.get('year', 0) or 0), 2),
+                    'lifetime_kwh': round(float(live_summary.get('lifetime', 0) or 0), 2),
+                    'source': 'live_api',
+                })
+
+            # ── Fallback: dados do banco ──────────────────────────────────
+            repository = Repository()
+
             summaries = repository.get_all_inverter_summaries()
             month_kwh = 0.0
             year_kwh = 0.0
@@ -854,7 +1032,6 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
                     month_kwh += float(ch.get('month') or 0)
                     year_kwh  += float(ch.get('year')  or 0)
 
-            # Lifetime do registro agregado mais recente (generation_data sem panel_id)
             data = repository.get_generation_data_for_period(today, today)
             aggregate = next(
                 (d for d in reversed(data) if d.panel_id is None and d.energy_kwh_total is not None),
@@ -865,7 +1042,8 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
                 'status': 'success',
                 'month_kwh': round(month_kwh, 2),
                 'year_kwh': round(year_kwh, 2),
-                'lifetime_kwh': float(aggregate.energy_kwh_total) if aggregate else 0
+                'lifetime_kwh': float(aggregate.energy_kwh_total) if aggregate else 0,
+                'source': 'database',
             })
         except Exception as e:
             logger.error(f"Erro ao buscar totais de energia: {e}")
