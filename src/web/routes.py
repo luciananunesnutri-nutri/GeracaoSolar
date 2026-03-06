@@ -74,18 +74,25 @@ def register_routes(app):
 
     @app.route('/api/debug-env')
     def debug_env():
-        """Diagnóstico temporário: verifica se env vars estão definidas."""
+        """Diagnóstico temporário: verifica env vars e seed de destinatários."""
         creds = _load_credentials()
         ap = creds.get('apsystems', {})
+
+        # Verificar destinatários no banco
+        try:
+            repo = Repository()
+            recipients = repo.get_all_recipients()
+            recipients_info = [{'email': r.email, 'active': r.active} for r in recipients]
+        except Exception as e:
+            recipients_info = f'erro: {e}'
+
         return jsonify({
             'APSYSTEMS_APP_ID_set': bool(os.environ.get('APSYSTEMS_APP_ID')),
             'APSYSTEMS_APP_SECRET_set': bool(os.environ.get('APSYSTEMS_APP_SECRET')),
             'APSYSTEMS_SID_set': bool(os.environ.get('APSYSTEMS_SID')),
-            'creds_app_id_type': type(ap.get('app_id')).__name__,
-            'creds_app_secret_type': type(ap.get('app_secret')).__name__,
-            'creds_sid_type': type(ap.get('sid')).__name__,
             'creds_app_id_len': len(ap.get('app_id') or ''),
             'creds_app_secret_len': len(ap.get('app_secret') or ''),
+            'recipients': recipients_info,
         })
 
     @app.route('/')
