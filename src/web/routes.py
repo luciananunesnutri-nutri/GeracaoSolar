@@ -605,16 +605,12 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
 
             # Buscar estatísticas
             stats = repository.get_daily_stats(target_date)
+            stats_dict = None
 
             if not stats:
                 # Calcular se não existir
                 calculator = StatisticsCalculator()
                 stats_dict = calculator.calculate_daily_stats(target_date)
-                if not stats_dict:
-                    return jsonify({
-                        'status': 'no_data',
-                        'message': f'Sem dados para {date_str}'
-                    }), 404
             else:
                 stats_dict = {
                     'date': stats.date.isoformat(),
@@ -631,6 +627,69 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
                 for record in data
                 if record.panel_id == 'hourly'
             }
+
+            # Se não há dados horários no banco e é hoje, buscar da API
+            is_today = (target_date == date.today())
+            if not hourly_map and is_today:
+                try:
+                    client = _make_api_client()
+                    inverters = client.get_system_inverters()
+                    ecu_id = inverters[0].get('eid') if inverters else None
+                    if ecu_id:
+                        api_hourly = client.get_ecu_energy(ecu_id, 'hourly', date_str)
+                        if api_hourly and isinstance(api_hourly, dict):
+                            # Formato: {time: [HH:mm,...], power: [W,...]} ou lista de kWh
+                            times = api_hourly.get('time', [])
+                            powers = api_hourly.get('power', [])
+                            if times and powers:
+                                for t, p in zip(times, powers):
+                                    try:
+                                        hour = int(t.split(':')[0])
+                                        hourly_map[hour] = float(p) if p else 0
+                                    except (ValueError, AttributeError):
+                                        pass
+                            elif not times:
+                                # Fallback: pode ser lista de kWh por hora
+                                energy_list = api_hourly.get('energy', [])
+                                if isinstance(energy_list, list):
+                                    for i, kwh in enumerate(energy_list):
+                                        if kwh and float(kwh) > 0:
+                                            hourly_map[i] = float(kwh) * 1000  # kWh → W (média da hora)
+
+                    # Se ainda sem hourly_map, tentar summary + telemetria para stats
+                    if not stats_dict:
+                        try:
+                            summary = client.get_system_summary()
+                            energy_today = float(summary.get('today', 0) or 0)
+                            if energy_today > 0:
+                                stats_dict = {
+                                    'date': date_str,
+                                    'total_generation_kwh': energy_today,
+                                    'peak_power_watts': 0,
+                                    'average_power_watts': 0,
+                                    'panel_stats': None
+                                }
+                        except Exception:
+                            pass
+                except Exception as e:
+                    logger.warning(f"Falha ao buscar dados horários da API: {e}")
+
+            # Se ainda sem stats e sem dados, retornar no_data
+            if not stats_dict and not hourly_map:
+                return jsonify({
+                    'status': 'no_data',
+                    'message': f'Sem dados para {date_str}'
+                }), 404
+
+            # Usar stats vazio se só temos chart_data
+            if not stats_dict:
+                stats_dict = {
+                    'date': date_str,
+                    'total_generation_kwh': 0,
+                    'peak_power_watts': 0,
+                    'average_power_watts': 0,
+                    'panel_stats': None
+                }
 
             chart_data = [
                 {'hour': hour, 'power': hourly_map.get(hour, 0)}
