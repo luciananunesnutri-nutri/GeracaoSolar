@@ -711,6 +711,92 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             logger.error(f"Erro ao buscar dados diários: {e}")
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
+    @app.route('/api/daily-comparison')
+    def api_daily_comparison():
+        """Retorna dados hourly dos últimos 5 dias para gráfico comparativo."""
+        today = date.today()
+        cache_key = f'daily_comparison_{today.isoformat()}'
+
+        # Cache de 15 minutos
+        cached = _realtime_cache.get(cache_key)
+        if cached:
+            age = (datetime.now() - cached['timestamp']).total_seconds()
+            if age < 900:  # 15 min
+                return jsonify(cached['value'])
+
+        try:
+            repository = Repository()
+            days_result = []
+
+            for i in range(5):
+                d = today - timedelta(days=i)
+                date_str = d.isoformat()
+
+                # Buscar dados horários do banco
+                data = repository.get_generation_data_for_period(d, d)
+                hourly_map = {
+                    record.timestamp.hour: record.power_watts
+                    for record in data
+                    if record.panel_id == 'hourly'
+                }
+
+                # Fallback API para hoje se DB vazio
+                if not hourly_map and i == 0:
+                    try:
+                        client = _make_api_client()
+                        inverters = client.get_system_inverters()
+                        ecu_id = inverters[0].get('eid') if inverters else None
+                        if ecu_id:
+                            api_hourly = client.get_ecu_energy(ecu_id, 'hourly', date_str)
+                            if api_hourly and isinstance(api_hourly, dict):
+                                times = api_hourly.get('time', [])
+                                powers = api_hourly.get('power', [])
+                                if times and powers:
+                                    for t, p in zip(times, powers):
+                                        try:
+                                            hour = int(t.split(':')[0])
+                                            hourly_map[hour] = float(p) if p else 0
+                                        except (ValueError, AttributeError):
+                                            pass
+                                elif not times:
+                                    energy_list = api_hourly.get('energy', [])
+                                    if isinstance(energy_list, list):
+                                        for idx, kwh in enumerate(energy_list):
+                                            if kwh and float(kwh) > 0:
+                                                hourly_map[idx] = float(kwh) * 1000
+                    except Exception as e:
+                        logger.warning(f"daily-comparison: falha API para {date_str}: {e}")
+
+                # Montar array de 24 valores
+                hourly_array = [hourly_map.get(h, 0) for h in range(24)]
+
+                # Só incluir se tem algum dado
+                if any(v > 0 for v in hourly_array):
+                    if i == 0:
+                        label = 'Hoje'
+                    elif i == 1:
+                        label = 'Ontem'
+                    else:
+                        label = d.strftime('%d/%m')
+
+                    days_result.append({
+                        'date': date_str,
+                        'label': label,
+                        'hourly': hourly_array
+                    })
+
+            if not days_result:
+                result = {'status': 'no_data', 'message': 'Sem dados nos últimos 5 dias'}
+            else:
+                result = {'status': 'success', 'days': days_result}
+
+            _realtime_cache[cache_key] = {'value': result, 'timestamp': datetime.now()}
+            return jsonify(result)
+
+        except Exception as e:
+            logger.error(f"Erro ao buscar comparação diária: {e}")
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
     @app.route('/api/monthly/<int:year>/<int:month>')
     def api_monthly(year, month):
         """Retorna estatísticas mensais."""

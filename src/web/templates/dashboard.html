@@ -226,6 +226,28 @@
     </div>
 </section>
 
+<!-- ── Seção: Comparação por Hora (últimos 5 dias) ──────────────────────── -->
+<section class="row mt-2">
+  <div class="col-12 mb-3">
+    <div class="card">
+      <div class="card-header bg-primary text-white px-2 px-md-3 py-2">
+        <h2 class="mb-0 fw-semibold h6">
+          <i class="fas fa-chart-line" aria-hidden="true"></i>
+          Comparação por Hora (últimos 5 dias)
+        </h2>
+      </div>
+      <div class="card-body p-2 p-md-3">
+        <div style="position: relative; height: 300px;">
+          <canvas id="comparisonChart" role="img" aria-label="Gráfico comparativo de geração dos últimos 5 dias"></canvas>
+        </div>
+        <div id="comparisonEmpty" style="display:none" class="text-center text-muted py-4">
+          Sem dados nos últimos 5 dias.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ── Seção: Balanço energético (medidor) ────────────────────────────────── -->
 <section aria-labelledby="meter-section-heading">
 <div class="row" id="meterSection" style="display:none">
@@ -599,6 +621,7 @@
 {% block extra_js %}
 <script>
     let dailyChart = null;
+    let comparisonChart = null;
     let inverterChart = null;
     let inverterData = null;   // cache dos dados brutos
     let inverterPeriod = 'today';
@@ -1294,6 +1317,92 @@
         } catch (e) { console.error('resolveAlert:', e); }
     }
 
+    // ── Gráfico comparativo (últimos 5 dias) ─────────────────────────────────
+    const comparisonColors = [
+        { border: '#28a745', bg: 'rgba(40,167,69,0.10)' },   // verde (hoje)
+        { border: '#007bff', bg: 'rgba(0,123,255,0.08)' },   // azul
+        { border: '#fd7e14', bg: 'rgba(253,126,20,0.08)' },  // laranja
+        { border: '#6f42c1', bg: 'rgba(111,66,193,0.08)' },  // roxo
+        { border: '#e83e8c', bg: 'rgba(232,62,140,0.08)' }   // rosa
+    ];
+
+    async function updateComparisonChart() {
+        const canvas = document.getElementById('comparisonChart');
+        const emptyMsg = document.getElementById('comparisonEmpty');
+        try {
+            const res = await fetch('/api/daily-comparison');
+            const json = await res.json();
+
+            if (json.status !== 'success' || !json.days || json.days.length === 0) {
+                canvas.style.display = 'none';
+                emptyMsg.style.display = 'block';
+                return;
+            }
+
+            canvas.style.display = 'block';
+            emptyMsg.style.display = 'none';
+
+            const labels = Array.from({length: 24}, (_, i) => String(i).padStart(2, '0') + ':00');
+            const datasets = json.days.map((day, idx) => ({
+                label: day.label + ' (' + day.date.slice(5).replace('-', '/') + ')',
+                data: day.hourly,
+                borderColor: comparisonColors[idx % 5].border,
+                backgroundColor: comparisonColors[idx % 5].bg,
+                borderWidth: idx === 0 ? 3 : 1.5,
+                pointRadius: idx === 0 ? 3 : 1.5,
+                pointHoverRadius: 5,
+                tension: 0.3,
+                fill: false,
+                order: idx === 0 ? 0 : 1
+            }));
+
+            if (comparisonChart) comparisonChart.destroy();
+
+            comparisonChart = new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const v = ctx.parsed.y;
+                                    const formatted = v >= 1000 ? (v / 1000).toFixed(2) + ' kW' : v.toFixed(0) + ' W';
+                                    return ctx.dataset.label + ': ' + formatted;
+                                }
+                            }
+                        },
+                        legend: {
+                            labels: { boxWidth: 14, font: { size: 11 } }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(v) {
+                                    return v >= 1000 ? (v / 1000).toFixed(1) + ' kW' : v + ' W';
+                                }
+                            },
+                            title: { display: true, text: 'Potência' }
+                        },
+                        x: {
+                            ticks: { maxTicksLimit: 12 }
+                        }
+                    }
+                }
+            });
+
+        } catch (e) {
+            console.error('updateComparisonChart:', e);
+            canvas.style.display = 'none';
+            emptyMsg.style.display = 'block';
+        }
+    }
+
     // ── Atualização manual ────────────────────────────────────────────────────
     async function fullUpdate() {
         const indicator = document.getElementById('refreshIndicator');
@@ -1302,6 +1411,7 @@
             updateCurrentData(),
             updateEnergyTotals(),
             updateDailyChart(),
+            updateComparisonChart(),
             updatePanelsData(),
             updateInverterSummary(),
             updateMeterData(),
