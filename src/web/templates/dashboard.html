@@ -662,7 +662,7 @@
                 const _economy = (data.energy_today * (data.tariff_brl || 1.0));
                 document.getElementById('economyToday').textContent =
                     'R$ ' + _economy.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-                const ts = new Date(data.timestamp);
+                const ts = new Date();  // hora local do navegador = momento real da coleta
                 document.getElementById('lastUpdate').textContent = `Atualizado: ${ts.toLocaleTimeString('pt-BR')}`;
                 document.getElementById('lastCollectionTimestamp').textContent =
                     ts.toLocaleDateString('pt-BR') + ' às ' + ts.toLocaleTimeString('pt-BR');
