@@ -44,6 +44,9 @@ def create_app():
     # Criar admin inicial se não existir
     _ensure_admin_user(config)
 
+    # Garantir destinatário padrão de alertas/relatórios
+    _ensure_default_recipients()
+
     # Injeta chat_enabled em todos os templates (leitura em tempo real do config)
     @app.context_processor
     def inject_chat_enabled():
@@ -91,6 +94,34 @@ def _ensure_admin_user(config):
     except Exception as e:
         session.rollback()
         logger.error(f"Erro ao criar admin inicial: {e}")
+    finally:
+        session.close()
+
+
+def _ensure_default_recipients():
+    """Garante que os destinatários padrão existam no banco (recria após reset do DB)."""
+    from ..database.models import db, AlertRecipient
+    session = db.get_session()
+    try:
+        defaults = [
+            {'name': 'Luciana Nunes', 'email': 'luciananunesnutri@gmail.com'},
+        ]
+        for d in defaults:
+            exists = session.query(AlertRecipient).filter_by(email=d['email']).first()
+            if not exists:
+                recipient = AlertRecipient(
+                    name=d['name'],
+                    email=d['email'],
+                    active=True,
+                    receive_alerts=True,
+                    receive_reports=True,
+                )
+                session.add(recipient)
+                logger.info(f"Destinatário padrão criado: {d['email']}")
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        logger.error(f"Erro ao criar destinatários padrão: {e}")
     finally:
         session.close()
 
