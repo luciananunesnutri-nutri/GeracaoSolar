@@ -714,7 +714,9 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
     @app.route('/api/daily-comparison')
     def api_daily_comparison():
         """Retorna dados hourly dos últimos 5 dias para gráfico comparativo."""
-        today = date.today()
+        from datetime import timezone
+        tz_br = timezone(timedelta(hours=-3))
+        today = datetime.now(tz_br).date()
         cache_key = f'daily_comparison_{today.isoformat()}'
 
         # Cache de 15 minutos
@@ -728,6 +730,16 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             repository = Repository()
             days_result = []
 
+            # Criar client e obter ecu_id uma única vez para fallback API
+            client = None
+            ecu_id = None
+            try:
+                client = _make_api_client()
+                inverters = client.get_system_inverters()
+                ecu_id = inverters[0].get('eid') if inverters else None
+            except Exception as e:
+                logger.warning(f"daily-comparison: falha ao inicializar API client: {e}")
+
             for i in range(5):
                 d = today - timedelta(days=i)
                 date_str = d.isoformat()
@@ -740,30 +752,26 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
                     if record.panel_id == 'hourly'
                 }
 
-                # Fallback API para hoje se DB vazio
-                if not hourly_map and i == 0:
+                # Fallback API se DB vazio (para qualquer dia, não só hoje)
+                if not hourly_map and client and ecu_id:
                     try:
-                        client = _make_api_client()
-                        inverters = client.get_system_inverters()
-                        ecu_id = inverters[0].get('eid') if inverters else None
-                        if ecu_id:
-                            api_hourly = client.get_ecu_energy(ecu_id, 'hourly', date_str)
-                            if api_hourly and isinstance(api_hourly, dict):
-                                times = api_hourly.get('time', [])
-                                powers = api_hourly.get('power', [])
-                                if times and powers:
-                                    for t, p in zip(times, powers):
-                                        try:
-                                            hour = int(t.split(':')[0])
-                                            hourly_map[hour] = float(p) if p else 0
-                                        except (ValueError, AttributeError):
-                                            pass
-                                elif not times:
-                                    energy_list = api_hourly.get('energy', [])
-                                    if isinstance(energy_list, list):
-                                        for idx, kwh in enumerate(energy_list):
-                                            if kwh and float(kwh) > 0:
-                                                hourly_map[idx] = float(kwh) * 1000
+                        api_hourly = client.get_ecu_energy(ecu_id, 'hourly', date_str)
+                        if api_hourly and isinstance(api_hourly, dict):
+                            times = api_hourly.get('time', [])
+                            powers = api_hourly.get('power', [])
+                            if times and powers:
+                                for t, p in zip(times, powers):
+                                    try:
+                                        hour = int(t.split(':')[0])
+                                        hourly_map[hour] = float(p) if p else 0
+                                    except (ValueError, AttributeError):
+                                        pass
+                            elif not times:
+                                energy_list = api_hourly.get('energy', [])
+                                if isinstance(energy_list, list):
+                                    for idx, kwh in enumerate(energy_list):
+                                        if kwh and float(kwh) > 0:
+                                            hourly_map[idx] = float(kwh) * 1000
                     except Exception as e:
                         logger.warning(f"daily-comparison: falha API para {date_str}: {e}")
 
