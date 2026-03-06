@@ -1,6 +1,6 @@
 from flask import render_template, jsonify, request
 from flask_login import current_user
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from ..database.repository import Repository
 from ..alerts.alert_manager import AlertManager
 from ..analysis.statistics import StatisticsCalculator
@@ -20,6 +20,19 @@ _REALTIME_CACHE_TTL = 300  # 5 minutos em segundos
 
 # Estado da coleta em andamento
 _collect_state = {'running': False, 'last_result': None, 'last_run': None}
+
+# Timezone de Brasília (UTC-3)
+_TZ_BR = timezone(timedelta(hours=-3))
+
+
+def _now_br():
+    """Retorna datetime atual no fuso de Brasília."""
+    return datetime.now(_TZ_BR)
+
+
+def _today_br():
+    """Retorna date de hoje no fuso de Brasília."""
+    return _now_br().date()
 
 
 def _load_credentials():
@@ -370,7 +383,7 @@ def register_routes(app):
                 }), 400
 
             # ── Monta contexto solar ──────────────────────────────────────────
-            today = date.today()
+            today = _today_br()
             repository = Repository()
 
             daily     = repository.get_daily_stats(today)
@@ -437,9 +450,8 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
         """Retorna dados em tempo real, buscando da API APSystems com cache de 5 min."""
         try:
             import json as _json
-            from datetime import datetime as _dt
 
-            now = _dt.now()
+            now = _now_br()
             today = now.date()
             today_str = today.strftime('%Y-%m-%d')
 
@@ -451,10 +463,11 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             # ── Tentar dados ao vivo da API (com cache de 5 min) ──────────
             cache_key = f'realtime_{today_str}'
             cached = _realtime_cache.get(cache_key)
+            _cache_now = datetime.now()
             cache_valid = (
                 cached
                 and cached.get('timestamp')
-                and (now - cached['timestamp']).total_seconds() < _REALTIME_CACHE_TTL
+                and (_cache_now - cached['timestamp']).total_seconds() < _REALTIME_CACHE_TTL
             )
 
             if cache_valid:
@@ -484,7 +497,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
                         'summary': summary,
                         'ecu_telemetry': ecu_telemetry,
                     }
-                    _realtime_cache[cache_key] = {'value': live, 'timestamp': now}
+                    _realtime_cache[cache_key] = {'value': live, 'timestamp': _cache_now}
                     logger.info("Dados em tempo real obtidos da API APSystems")
 
                 except Exception as e:
@@ -629,7 +642,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             }
 
             # Se não há dados horários no banco e é hoje, buscar da API
-            is_today = (target_date == date.today())
+            is_today = (target_date == _today_br())
             if not hourly_map and is_today:
                 try:
                     client = _make_api_client()
@@ -714,9 +727,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
     @app.route('/api/daily-comparison')
     def api_daily_comparison():
         """Retorna dados hourly dos últimos 5 dias para gráfico comparativo."""
-        from datetime import timezone
-        tz_br = timezone(timedelta(hours=-3))
-        today = datetime.now(tz_br).date()
+        today = _today_br()
         cache_key = f'daily_comparison_{today.isoformat()}'
 
         # Cache de 15 minutos
@@ -883,7 +894,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             repository = Repository()
             credentials = _load_credentials()
             ecu_id = credentials['apsystems']['sid']
-            today = date.today()
+            today = _today_br()
 
             # Buscar batch power do dia e summaries de energia por inversor
             batch = repository.get_latest_inverter_batch_for_date(today)
@@ -1016,9 +1027,9 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             if date_str:
                 target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             else:
-                target_date = date.today()
+                target_date = _today_br()
 
-            is_today = (target_date == date.today())
+            is_today = (target_date == _today_br())
 
             # Para hoje, tentar dados ao vivo da API (reutilizar cache do /api/current)
             if is_today:
@@ -1088,7 +1099,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
         """Retorna batch power de todos os inversores para hoje."""
         try:
             repository = Repository()
-            today = date.today()
+            today = _today_br()
 
             record = repository.get_latest_inverter_batch_for_date(today)
             if not record:
@@ -1137,7 +1148,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
         try:
             from datetime import datetime as _dt
 
-            today = date.today()
+            today = _today_br()
 
             # ── Tentar dados ao vivo da API (summary tem month/year/lifetime) ──
             now = _dt.now()
@@ -1232,7 +1243,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
     def api_energy_prev_year_month():
         """Retorna geração do mesmo mês no ano anterior (com cache diário)."""
         try:
-            today = date.today()
+            today = _today_br()
             prev_year = today.year - 1
             cache_key = f'prev_year_month_{prev_year}_{today.month}'
 
@@ -1266,7 +1277,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
         try:
             from sqlalchemy import func as _func
             from ..database.models import db as _db, GenerationData as _GD
-            yesterday = date.today() - timedelta(days=1)
+            yesterday = _today_br() - timedelta(days=1)
 
             # Tentar banco de dados primeiro
             session = _db.get_session()
@@ -1319,7 +1330,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
                 logger.error(f"Erro na coleta manual: {e}")
             finally:
                 _collect_state['running'] = False
-                _collect_state['last_run'] = datetime.now()
+                _collect_state['last_run'] = _now_br()
 
         thread = threading.Thread(target=run_collection, daemon=True)
         thread.start()
@@ -1476,7 +1487,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
               <div style="background:#f8f9fa;padding:20px;border-radius:0 0 8px 8px">
                 <p>Integração com Gmail configurada e funcionando corretamente.</p>
                 <p style="color:#6c757d;font-size:12px">
-                  Enviado em {datetime.now().strftime('%d/%m/%Y às %H:%M:%S')}
+                  Enviado em {_now_br().strftime('%d/%m/%Y às %H:%M:%S')}
                 </p>
               </div>
             </div></body></html>
@@ -1502,7 +1513,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
                     target_date = date.fromisoformat(date_param)
                 except ValueError:
                     return jsonify({'status': 'error', 'message': 'Formato de data inválido (use YYYY-MM-DD)'}), 400
-                if target_date > date.today():
+                if target_date > _today_br():
                     return jsonify({'status': 'error', 'message': 'Data futura não permitida'}), 400
             result = generate_insights(target_date=target_date)
             return jsonify(result)
@@ -1574,7 +1585,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             from ..alerts.alert_manager import AlertManager
             from ..analysis.statistics import StatisticsCalculator
 
-            today = date.today()
+            today = _today_br()
             calculator = StatisticsCalculator()
             stats = calculator.calculate_daily_stats(today)
 
