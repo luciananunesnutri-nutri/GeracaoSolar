@@ -31,6 +31,11 @@
 
 {% block content %}
 
+<div class="text-muted text-end mb-1" style="font-size:0.78rem;" aria-live="polite">
+    <i class="fas fa-sync-alt" aria-hidden="true" style="font-size:0.65rem;"></i>
+    Última coleta: <span id="lastCollectionTimestamp">--</span>
+</div>
+
 <!-- ── Seção: Estatísticas do dia ─────────────────────────────────────────────── -->
 <section aria-labelledby="section-today-heading">
     <h2 id="section-today-heading" class="visually-hidden">Estatísticas de hoje</h2>
@@ -659,6 +664,8 @@
                     'R$ ' + _economy.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
                 const ts = new Date(data.timestamp);
                 document.getElementById('lastUpdate').textContent = `Atualizado: ${ts.toLocaleTimeString('pt-BR')}`;
+                document.getElementById('lastCollectionTimestamp').textContent =
+                    ts.toLocaleDateString('pt-BR') + ' às ' + ts.toLocaleTimeString('pt-BR');
                 _todayKwh = data.energy_today;
                 renderTodayVsYesterday();
             }
