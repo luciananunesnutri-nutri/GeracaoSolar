@@ -511,6 +511,14 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
                 energy_today = float(summary.get('today', 0) or 0)
                 energy_total = float(summary.get('lifetime', 0) or 0)
 
+                # Fallback: se summary não traz energy_today, calcular via hourly
+                if energy_today == 0 and ecu_telemetry:
+                    power_vals = ecu_telemetry.get('power', [])
+                    if power_vals and any(p > 0 for p in power_vals):
+                        # Estimar kWh: soma de potências (W) × intervalo (5min) / 60 / 1000
+                        interval_h = 5 / 60  # 5 minutos em horas
+                        energy_today = round(sum(p for p in power_vals if p > 0) * interval_h / 1000, 2)
+
                 # Potência atual e pico a partir da telemetria minutely
                 current_power = 0
                 peak_today = 0

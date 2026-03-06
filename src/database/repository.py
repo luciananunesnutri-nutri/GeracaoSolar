@@ -1,4 +1,4 @@
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import List, Dict, Optional
 from sqlalchemy import func, and_, cast, Date
 from .models import (
@@ -7,6 +7,14 @@ from .models import (
     AlertRecipient, EmailLog, SchedulerLog, PeriodType, AlertType, Severity, SystemStatus
 )
 from ..utils.logger import logger
+
+_TZ_BR = timezone(timedelta(hours=-3))
+
+def _today_br():
+    return datetime.now(_TZ_BR).date()
+
+def _now_br():
+    return datetime.now(_TZ_BR)
 
 
 class Repository:
@@ -186,7 +194,8 @@ class Repository:
             hourly_dates = set()
             for r in hourly_rows:
                 try:
-                    hourly_dates.add(date.fromisoformat(str(r.d)))
+                    if r.d is not None:
+                        hourly_dates.add(date.fromisoformat(str(r.d)))
                 except Exception:
                     pass
             return sorted(telemetry_dates | hourly_dates, reverse=True)
@@ -198,7 +207,7 @@ class Repository:
         """Retorna alertas gerados hoje."""
         session = db.get_session()
         try:
-            today = date.today()
+            today = _today_br()
             q = session.query(Alert).filter(
                 Alert.timestamp >= datetime.combine(today, datetime.min.time())
             )
@@ -709,7 +718,7 @@ class Repository:
         """Retorna True se já foi enviado um email do tipo informado com sucesso hoje."""
         session = db.get_session()
         try:
-            today_start = datetime.combine(date.today(), datetime.min.time())
+            today_start = datetime.combine(_today_br(), datetime.min.time())
             count = (
                 session.query(EmailLog)
                 .filter(
