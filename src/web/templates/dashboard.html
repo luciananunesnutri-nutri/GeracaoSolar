@@ -231,6 +231,28 @@
     </div>
 </section>
 
+<!-- ── Seção: Hoje vs Ontem ──────────────────────────────────────────────── -->
+<section class="row mt-2">
+  <div class="col-12 mb-3">
+    <div class="card">
+      <div class="card-header bg-primary text-white px-2 px-md-3 py-2">
+        <h2 class="mb-0 fw-semibold h6">
+          <i class="fas fa-exchange-alt" aria-hidden="true"></i>
+          Hoje vs Ontem
+        </h2>
+      </div>
+      <div class="card-body p-2 p-md-3">
+        <div style="position: relative; height: 280px;">
+          <canvas id="todayVsYesterdayChart" role="img" aria-label="Gráfico comparativo de geração hoje versus ontem"></canvas>
+        </div>
+        <div id="todayVsYesterdayEmpty" style="display:none" class="text-center text-muted py-4">
+          Sem dados para comparação.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ── Seção: Comparação por Hora (últimos 5 dias) ──────────────────────── -->
 <section class="row mt-2">
   <div class="col-12 mb-3">
@@ -627,6 +649,7 @@
 <script>
     let dailyChart = null;
     let comparisonChart = null;
+    let todayVsYesterdayChart = null;
     let inverterChart = null;
     let inverterData = null;   // cache dos dados brutos
     let inverterPeriod = 'today';
@@ -1324,6 +1347,128 @@
         } catch (e) { console.error('resolveAlert:', e); }
     }
 
+    // ── Gráfico Hoje vs Ontem ────────────────────────────────────────────────
+    async function updateTodayVsYesterdayChart() {
+        const canvas = document.getElementById('todayVsYesterdayChart');
+        const emptyMsg = document.getElementById('todayVsYesterdayEmpty');
+        try {
+            const res = await fetch('/api/daily-comparison');
+            const json = await res.json();
+
+            if (json.status !== 'success' || !json.days || json.days.length === 0) {
+                canvas.style.display = 'none';
+                emptyMsg.style.display = 'block';
+                return;
+            }
+
+            // Encontrar "Hoje" e "Ontem" nos dados
+            const todayData = json.days.find(d => d.label === 'Hoje');
+            const yesterdayData = json.days.find(d => d.label === 'Ontem');
+
+            if (!todayData && !yesterdayData) {
+                canvas.style.display = 'none';
+                emptyMsg.style.display = 'block';
+                return;
+            }
+
+            canvas.style.display = 'block';
+            emptyMsg.style.display = 'none';
+
+            const labels = Array.from({length: 24}, (_, i) => String(i).padStart(2, '0') + ':00');
+            const datasets = [];
+
+            if (todayData) {
+                datasets.push({
+                    label: 'Hoje (' + todayData.date.slice(5).replace('-', '/') + ')',
+                    data: todayData.hourly,
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.15)',
+                    borderWidth: 3,
+                    pointRadius: 3,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#28a745',
+                    tension: 0.3,
+                    fill: true,
+                    order: 0
+                });
+            }
+
+            if (yesterdayData) {
+                datasets.push({
+                    label: 'Ontem (' + yesterdayData.date.slice(5).replace('-', '/') + ')',
+                    data: yesterdayData.hourly,
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.08)',
+                    borderWidth: 2,
+                    borderDash: [6, 3],
+                    pointRadius: 2,
+                    pointHoverRadius: 5,
+                    pointBackgroundColor: '#007bff',
+                    tension: 0.3,
+                    fill: true,
+                    order: 1
+                });
+            }
+
+            if (todayVsYesterdayChart) todayVsYesterdayChart.destroy();
+
+            todayVsYesterdayChart = new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: { labels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const v = ctx.parsed.y;
+                                    const formatted = v >= 1000 ? (v / 1000).toFixed(2) + ' kW' : v.toFixed(0) + ' W';
+                                    return ctx.dataset.label + ': ' + formatted;
+                                },
+                                afterBody: function(items) {
+                                    if (items.length === 2) {
+                                        const hoje = items[0].parsed.y;
+                                        const ontem = items[1].parsed.y;
+                                        if (ontem > 0) {
+                                            const diff = ((hoje - ontem) / ontem * 100).toFixed(1);
+                                            const sinal = diff >= 0 ? '+' : '';
+                                            return '\nDiferença: ' + sinal + diff + '%';
+                                        }
+                                    }
+                                    return '';
+                                }
+                            }
+                        },
+                        legend: {
+                            labels: { boxWidth: 14, font: { size: 12 }, usePointStyle: true }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(v) {
+                                    return v >= 1000 ? (v / 1000).toFixed(1) + ' kW' : v + ' W';
+                                }
+                            },
+                            title: { display: true, text: 'Potência' }
+                        },
+                        x: {
+                            ticks: { maxTicksLimit: 12 }
+                        }
+                    }
+                }
+            });
+
+        } catch (e) {
+            console.error('updateTodayVsYesterdayChart:', e);
+            canvas.style.display = 'none';
+            emptyMsg.style.display = 'block';
+        }
+    }
+
     // ── Gráfico comparativo (últimos 5 dias) ─────────────────────────────────
     const comparisonColors = [
         { border: '#28a745', bg: 'rgba(40,167,69,0.10)' },   // verde (hoje)
@@ -1418,6 +1563,7 @@
             updateCurrentData(),
             updateEnergyTotals(),
             updateDailyChart(),
+            updateTodayVsYesterdayChart(),
             updateComparisonChart(),
             updatePanelsData(),
             updateInverterSummary(),
