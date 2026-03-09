@@ -47,6 +47,9 @@ def create_app():
     # Garantir destinatário padrão de alertas/relatórios
     _ensure_default_recipients()
 
+    # Iniciar scheduler de jobs (coleta, relatórios, estatísticas)
+    _start_scheduler(config)
+
     # Injeta chat_enabled em todos os templates (leitura em tempo real do config)
     @app.context_processor
     def inject_chat_enabled():
@@ -124,6 +127,103 @@ def _ensure_default_recipients():
         logger.error(f"Erro ao criar destinatários padrão: {e}")
     finally:
         session.close()
+
+
+def _parse_cron(cron_expr: str) -> dict:
+    """Converte cron '15 20 * * *' em kwargs do APScheduler CronTrigger."""
+    parts = cron_expr.strip().split()
+    if len(parts) != 5:
+        return {}
+    return {
+        'minute': parts[0],
+        'hour': parts[1],
+        'day': parts[2],
+        'month': parts[3],
+        'day_of_week': parts[4],
+    }
+
+
+_scheduler_started = False
+
+
+def _start_scheduler(config):
+    """Inicia o APScheduler com os jobs configurados em config.yaml."""
+    global _scheduler_started
+    if _scheduler_started:
+        return
+    _scheduler_started = True
+
+    sc = config.get('scheduler', {})
+
+    # Verificar se há pelo menos um job habilitado
+    any_enabled = (
+        sc.get('collection_enabled', False)
+        or sc.get('evening_summary_enabled', False)
+        or sc.get('statistics_enabled', False)
+        or sc.get('cleanup_enabled', False)
+    )
+    if not any_enabled:
+        logger.info("Scheduler: nenhum job habilitado — scheduler não iniciado")
+        return
+
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+        from apscheduler.triggers.cron import CronTrigger
+        import pytz
+
+        tz_br = pytz.timezone('America/Sao_Paulo')
+        scheduler = BackgroundScheduler(timezone=tz_br)
+
+        from ..scheduler.jobs import (
+            collect_solar_data, send_evening_summary,
+            calculate_statistics, cleanup_old_data
+        )
+
+        if sc.get('collection_enabled', False):
+            cron = _parse_cron(sc.get('collection_interval', '0 */1 * * *'))
+            if cron:
+                scheduler.add_job(collect_solar_data, CronTrigger(**cron, timezone=tz_br),
+                                  id='collection', replace_existing=True,
+                                  misfire_grace_time=300)
+                logger.info(f"Scheduler: coleta agendada — {sc.get('collection_interval')}")
+
+        if sc.get('evening_summary_enabled', False):
+            cron = _parse_cron(sc.get('evening_summary_interval', '0 20 * * *'))
+            if cron:
+                scheduler.add_job(send_evening_summary, CronTrigger(**cron, timezone=tz_br),
+                                  id='evening_summary', replace_existing=True,
+                                  misfire_grace_time=600)
+                logger.info(f"Scheduler: resumo vespertino agendado — {sc.get('evening_summary_interval')}")
+
+        if sc.get('statistics_enabled', False):
+            cron = _parse_cron(sc.get('statistics_interval', '55 23 * * *'))
+            if cron:
+                scheduler.add_job(calculate_statistics, CronTrigger(**cron, timezone=tz_br),
+                                  id='statistics', replace_existing=True,
+                                  misfire_grace_time=300)
+                logger.info(f"Scheduler: estatísticas agendado — {sc.get('statistics_interval')}")
+
+        if sc.get('cleanup_enabled', False):
+            cron = _parse_cron(sc.get('cleanup_interval', '0 2 * * 0'))
+            if cron:
+                scheduler.add_job(cleanup_old_data, CronTrigger(**cron, timezone=tz_br),
+                                  id='cleanup', replace_existing=True,
+                                  misfire_grace_time=300)
+                logger.info(f"Scheduler: limpeza agendada — {sc.get('cleanup_interval')}")
+
+        scheduler.start()
+        logger.info("Scheduler iniciado com sucesso")
+
+        # Coleta imediata no startup se configurado
+        if sc.get('collection_on_startup', False):
+            logger.info("Scheduler: executando coleta no startup...")
+            scheduler.add_job(collect_solar_data, id='collection_startup',
+                              replace_existing=True)
+
+    except ImportError as e:
+        logger.error(f"Scheduler: APScheduler não instalado — {e}")
+    except Exception as e:
+        logger.error(f"Scheduler: erro ao iniciar — {e}", exc_info=True)
 
 
 def get_repository():

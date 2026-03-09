@@ -1,4 +1,4 @@
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from pathlib import Path
 import os
 import yaml
@@ -8,6 +8,14 @@ from ..analysis.detector import AnomalyDetector
 from ..analysis.statistics import StatisticsCalculator
 from ..alerts.alert_manager import AlertManager
 from ..utils.logger import logger
+
+_TZ_BR = timezone(timedelta(hours=-3))
+
+def _now_br():
+    return datetime.now(_TZ_BR)
+
+def _today_br():
+    return _now_br().date()
 
 
 def _log_job(job_name: str, started_at: datetime, success: bool, message: str = None):
@@ -281,7 +289,7 @@ def send_evening_summary(force: bool = False):
 
         # Buscar pico do dia nas estatísticas locais
         repository = Repository()
-        today = date.today()
+        today = _today_br()
         stats = repository.get_daily_stats(today)
         peak_w = stats.peak_power_watts if stats else 0
 
@@ -360,7 +368,7 @@ def calculate_statistics():
         calculator = StatisticsCalculator()
 
         # Calcular estatísticas de hoje
-        today = date.today()
+        today = _today_br()
         logger.info(f"Calculando estatísticas para {today}")
         daily_stats = calculator.calculate_daily_stats(today)
 
