@@ -819,6 +819,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
                 if not hourly_map and client and ecu_id:
                     try:
                         api_hourly = client.get_ecu_energy(ecu_id, 'hourly', date_str)
+                        logger.info(f"daily-comparison API {date_str}: type={type(api_hourly).__name__}, keys={list(api_hourly.keys()) if isinstance(api_hourly, dict) else 'N/A'}, raw={str(api_hourly)[:300]}")
                         if api_hourly and isinstance(api_hourly, dict):
                             times = api_hourly.get('time', [])
                             powers = api_hourly.get('power', [])
@@ -835,6 +836,15 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
                                     for idx, kwh in enumerate(energy_list):
                                         if kwh and float(kwh) > 0:
                                             hourly_map[idx] = float(kwh) * 1000
+                        elif api_hourly and isinstance(api_hourly, list):
+                            # Fallback: lista de 24 valores kWh
+                            for idx, val in enumerate(api_hourly):
+                                try:
+                                    v = float(val or 0)
+                                    if v > 0:
+                                        hourly_map[idx] = v * 1000  # kWh → W
+                                except (ValueError, TypeError):
+                                    pass
                     except Exception as e:
                         logger.warning(f"daily-comparison: falha API para {date_str}: {e}")
 
