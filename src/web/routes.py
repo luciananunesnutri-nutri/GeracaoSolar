@@ -83,6 +83,32 @@ def register_routes(app):
             logger.error(f"Erro ao disparar resumo: {e}", exc_info=True)
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
+    @app.route('/api/debug-email-logs')
+    def debug_email_logs():
+        """Temporário: mostra últimos logs de email e scheduler."""
+        try:
+            repo = Repository()
+            emails = repo.get_email_logs(limit=10)
+            scheduler = repo.get_scheduler_logs(limit=10)
+            return jsonify({
+                'email_logs': [{
+                    'type': e.email_type,
+                    'subject': e.subject,
+                    'recipients': e.recipients,
+                    'success': e.success,
+                    'error': e.error_message,
+                    'sent_at': e.sent_at.isoformat() if e.sent_at else None,
+                } for e in emails],
+                'scheduler_logs': [{
+                    'job': s.job_name,
+                    'success': s.success,
+                    'message': s.message,
+                    'started_at': s.started_at.isoformat() if s.started_at else None,
+                } for s in scheduler],
+            })
+        except Exception as e:
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
     @app.route('/api/debug-env')
     def debug_env():
         """Diagnóstico temporário: verifica env vars e seed de destinatários."""
