@@ -72,6 +72,17 @@ def _make_api_client():
 def register_routes(app):
     """Registra todas as rotas da aplicação."""
 
+    @app.route('/api/debug-trigger-summary', methods=['POST'])
+    def debug_trigger_summary():
+        """Temporário: dispara resumo vespertino sem auth para teste."""
+        try:
+            from ..scheduler.jobs import send_evening_summary
+            send_evening_summary(force=True)
+            return jsonify({'status': 'success', 'message': 'Resumo vespertino disparado'})
+        except Exception as e:
+            logger.error(f"Erro ao disparar resumo: {e}", exc_info=True)
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
     @app.route('/api/debug-env')
     def debug_env():
         """Diagnóstico temporário: verifica env vars e seed de destinatários."""
