@@ -231,19 +231,19 @@
     </div>
 </section>
 
-<!-- ── Seção: Hoje vs Ontem ──────────────────────────────────────────────── -->
+<!-- ── Seção: Ontem vs Anteontem ─────────────────────────────────────────── -->
 <section class="row mt-2">
   <div class="col-12 mb-3">
     <div class="card">
       <div class="card-header bg-primary text-white px-2 px-md-3 py-2">
         <h2 class="mb-0 fw-semibold h6">
           <i class="fas fa-exchange-alt" aria-hidden="true"></i>
-          Hoje vs Ontem
+          Ontem vs Anteontem
         </h2>
       </div>
       <div class="card-body p-2 p-md-3">
         <div style="position: relative; height: 280px;">
-          <canvas id="todayVsYesterdayChart" role="img" aria-label="Gráfico comparativo de geração hoje versus ontem"></canvas>
+          <canvas id="todayVsYesterdayChart" role="img" aria-label="Gráfico comparativo de geração ontem versus anteontem"></canvas>
         </div>
         <div id="todayVsYesterdayEmpty" style="display:none" class="text-center text-muted py-4">
           Sem dados para comparação.
@@ -1347,7 +1347,7 @@
         } catch (e) { console.error('resolveAlert:', e); }
     }
 
-    // ── Gráfico Hoje vs Ontem ────────────────────────────────────────────────
+    // ── Gráfico Ontem vs Anteontem ────────────────────────────────────────────
     async function updateTodayVsYesterdayChart() {
         const canvas = document.getElementById('todayVsYesterdayChart');
         const emptyMsg = document.getElementById('todayVsYesterdayEmpty');
@@ -1361,11 +1361,12 @@
                 return;
             }
 
-            // Encontrar "Hoje" e "Ontem" nos dados
-            const todayData = json.days.find(d => d.label === 'Hoje');
+            // Pegar Ontem (D-1) e Anteontem (D-2) — ignorar Hoje
             const yesterdayData = json.days.find(d => d.label === 'Ontem');
+            // Anteontem é o 3º dia (índice 2) — tem label DD/MM
+            const dayBeforeData = json.days.length >= 3 ? json.days[2] : null;
 
-            if (!todayData && !yesterdayData) {
+            if (!yesterdayData && !dayBeforeData) {
                 canvas.style.display = 'none';
                 emptyMsg.style.display = 'block';
                 return;
@@ -1377,10 +1378,10 @@
             const labels = Array.from({length: 24}, (_, i) => String(i).padStart(2, '0') + ':00');
             const datasets = [];
 
-            if (todayData) {
+            if (yesterdayData) {
                 datasets.push({
-                    label: 'Hoje (' + todayData.date.slice(5).replace('-', '/') + ')',
-                    data: todayData.hourly,
+                    label: 'Ontem (' + yesterdayData.date.slice(5).replace('-', '/') + ')',
+                    data: yesterdayData.hourly,
                     borderColor: '#28a745',
                     backgroundColor: 'rgba(40, 167, 69, 0.15)',
                     borderWidth: 3,
@@ -1393,10 +1394,10 @@
                 });
             }
 
-            if (yesterdayData) {
+            if (dayBeforeData) {
                 datasets.push({
-                    label: 'Ontem (' + yesterdayData.date.slice(5).replace('-', '/') + ')',
-                    data: yesterdayData.hourly,
+                    label: 'Anteontem (' + dayBeforeData.date.slice(5).replace('-', '/') + ')',
+                    data: dayBeforeData.hourly,
                     borderColor: '#007bff',
                     backgroundColor: 'rgba(0, 123, 255, 0.08)',
                     borderWidth: 2,
@@ -1429,10 +1430,10 @@
                                 },
                                 afterBody: function(items) {
                                     if (items.length === 2) {
-                                        const hoje = items[0].parsed.y;
-                                        const ontem = items[1].parsed.y;
-                                        if (ontem > 0) {
-                                            const diff = ((hoje - ontem) / ontem * 100).toFixed(1);
+                                        const ontem = items[0].parsed.y;
+                                        const anteontem = items[1].parsed.y;
+                                        if (anteontem > 0) {
+                                            const diff = ((ontem - anteontem) / anteontem * 100).toFixed(1);
                                             const sinal = diff >= 0 ? '+' : '';
                                             return '\nDiferença: ' + sinal + diff + '%';
                                         }
