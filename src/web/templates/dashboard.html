@@ -275,6 +275,28 @@
   </div>
 </section>
 
+<!-- ── Seção: Comparativo Diário (barras) ────────────────────────────────── -->
+<section class="row mt-2">
+  <div class="col-12 mb-3">
+    <div class="card">
+      <div class="card-header bg-primary text-white px-2 px-md-3 py-2">
+        <h2 class="mb-0 fw-semibold h6">
+          <i class="fas fa-chart-bar" aria-hidden="true"></i>
+          Geração Total: Hoje vs Ontem vs Anteontem
+        </h2>
+      </div>
+      <div class="card-body p-2 p-md-3">
+        <div style="position: relative; height: 260px;">
+          <canvas id="dailyBarChart" role="img" aria-label="Gráfico de barras comparando geração total de hoje, ontem e anteontem"></canvas>
+        </div>
+        <div id="dailyBarEmpty" style="display:none" class="text-center text-muted py-4">
+          Sem dados para comparação.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ── Seção: Balanço energético (medidor) ────────────────────────────────── -->
 <section aria-labelledby="meter-section-heading">
 <div class="row" id="meterSection" style="display:none">
@@ -1560,6 +1582,118 @@
         }
     }
 
+    // ── Gráfico de barras: Geração Total (Hoje vs Ontem vs Anteontem) ────────
+    let dailyBarChart = null;
+
+    async function updateDailyBarChart() {
+        const canvas = document.getElementById('dailyBarChart');
+        const emptyMsg = document.getElementById('dailyBarEmpty');
+        try {
+            const res = await fetch('/api/daily-comparison');
+            const json = await res.json();
+
+            if (json.status !== 'success' || !json.days || json.days.length === 0) {
+                canvas.style.display = 'none';
+                emptyMsg.style.display = 'block';
+                return;
+            }
+
+            // Pegar os 3 primeiros dias (Hoje, Ontem, Anteontem)
+            const days = json.days.slice(0, 3);
+
+            if (days.length === 0) {
+                canvas.style.display = 'none';
+                emptyMsg.style.display = 'block';
+                return;
+            }
+
+            canvas.style.display = 'block';
+            emptyMsg.style.display = 'none';
+
+            // Calcular total kWh de cada dia (soma dos hourly em W, converter para kWh)
+            const labels = days.map(d => d.label + '\n(' + d.date.slice(5).replace('-', '/') + ')');
+            const totals = days.map(d => {
+                const sumW = d.hourly.reduce((acc, v) => acc + v, 0);
+                return +(sumW / 1000).toFixed(2); // W -> kWh
+            });
+
+            const barColors = ['#28a745', '#007bff', '#fd7e14'];
+            const barBgColors = [
+                'rgba(40, 167, 69, 0.75)',
+                'rgba(0, 123, 255, 0.75)',
+                'rgba(253, 126, 20, 0.75)'
+            ];
+
+            if (dailyBarChart) dailyBarChart.destroy();
+
+            dailyBarChart = new Chart(canvas.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Geração (kWh)',
+                        data: totals,
+                        backgroundColor: barBgColors.slice(0, days.length),
+                        borderColor: barColors.slice(0, days.length),
+                        borderWidth: 2,
+                        borderRadius: 6,
+                        maxBarThickness: 80
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    return ctx.parsed.y.toFixed(2) + ' kWh';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Energia (kWh)' },
+                            ticks: {
+                                callback: function(v) { return v.toFixed(1) + ' kWh'; }
+                            }
+                        },
+                        x: {
+                            ticks: { font: { size: 12, weight: 'bold' } }
+                        }
+                    }
+                },
+                plugins: [{
+                    id: 'barValueLabels',
+                    afterDatasetsDraw(chart) {
+                        const { ctx } = chart;
+                        chart.data.datasets.forEach((dataset, i) => {
+                            const meta = chart.getDatasetMeta(i);
+                            meta.data.forEach((bar, index) => {
+                                const value = dataset.data[index];
+                                ctx.save();
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'bottom';
+                                ctx.font = 'bold 13px sans-serif';
+                                ctx.fillStyle = '#333';
+                                ctx.fillText(value.toFixed(2) + ' kWh', bar.x, bar.y - 4);
+                                ctx.restore();
+                            });
+                        });
+                    }
+                }]
+            });
+
+        } catch (e) {
+            console.error('updateDailyBarChart:', e);
+            canvas.style.display = 'none';
+            emptyMsg.style.display = 'block';
+        }
+    }
+
     // ── Atualização manual ────────────────────────────────────────────────────
     async function fullUpdate() {
         const indicator = document.getElementById('refreshIndicator');
@@ -1570,6 +1704,7 @@
             updateDailyChart(),
             updateTodayVsYesterdayChart(),
             updateComparisonChart(),
+            updateDailyBarChart(),
             updatePanelsData(),
             updateInverterSummary(),
             updateMeterData(),
