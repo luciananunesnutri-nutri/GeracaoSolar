@@ -275,22 +275,44 @@
   </div>
 </section>
 
-<!-- ── Seção: Comparativo Diário (barras) ────────────────────────────────── -->
+<!-- ── Seção: Geração Diária do Mês (barras) ─────────────────────────────── -->
 <section class="row mt-2">
   <div class="col-12 mb-3">
     <div class="card">
       <div class="card-header bg-primary text-white px-2 px-md-3 py-2">
         <h2 class="mb-0 fw-semibold h6">
           <i class="fas fa-chart-bar" aria-hidden="true"></i>
-          Geração Total: Hoje vs Ontem vs Anteontem
+          Geração Diária do Mês
         </h2>
       </div>
       <div class="card-body p-2 p-md-3">
-        <div style="position: relative; height: 260px;">
-          <canvas id="dailyBarChart" role="img" aria-label="Gráfico de barras comparando geração total de hoje, ontem e anteontem"></canvas>
+        <div style="position: relative; height: 300px;">
+          <canvas id="dailyBarChart" role="img" aria-label="Gráfico de barras com geração diária de cada dia do mês atual"></canvas>
         </div>
         <div id="dailyBarEmpty" style="display:none" class="text-center text-muted py-4">
-          Sem dados para comparação.
+          Sem dados para o mês atual.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Seção: Geração Mensal do Ano (barras) ──────────────────────────────── -->
+<section class="row mt-2">
+  <div class="col-12 mb-3">
+    <div class="card">
+      <div class="card-header bg-primary text-white px-2 px-md-3 py-2">
+        <h2 class="mb-0 fw-semibold h6">
+          <i class="fas fa-chart-bar" aria-hidden="true"></i>
+          Geração Mensal do Ano
+        </h2>
+      </div>
+      <div class="card-body p-2 p-md-3">
+        <div style="position: relative; height: 300px;">
+          <canvas id="monthlyBarChart" role="img" aria-label="Gráfico de barras com geração mensal do ano atual"></canvas>
+        </div>
+        <div id="monthlyBarEmpty" style="display:none" class="text-center text-muted py-4">
+          Sem dados para o ano atual.
         </div>
       </div>
     </div>
@@ -1582,14 +1604,14 @@
         }
     }
 
-    // ── Gráfico de barras: Geração Total (Hoje vs Ontem vs Anteontem) ────────
+    // ── Gráfico de barras: Geração Diária do Mês ────────────────────────────
     let dailyBarChart = null;
 
     async function updateDailyBarChart() {
         const canvas = document.getElementById('dailyBarChart');
         const emptyMsg = document.getElementById('dailyBarEmpty');
         try {
-            const res = await fetch('/api/daily-comparison');
+            const res = await fetch('/api/monthly-daily-totals');
             const json = await res.json();
 
             if (json.status !== 'success' || !json.days || json.days.length === 0) {
@@ -1598,31 +1620,26 @@
                 return;
             }
 
-            // Pegar os 3 primeiros dias (Hoje, Ontem, Anteontem)
-            const days = json.days.slice(0, 3);
-
-            if (days.length === 0) {
-                canvas.style.display = 'none';
-                emptyMsg.style.display = 'block';
-                return;
-            }
-
             canvas.style.display = 'block';
             emptyMsg.style.display = 'none';
 
-            // Calcular total kWh de cada dia (soma dos hourly em W, converter para kWh)
-            const labels = days.map(d => d.label + '\n(' + d.date.slice(5).replace('-', '/') + ')');
-            const totals = days.map(d => {
-                const sumW = d.hourly.reduce((acc, v) => acc + v, 0);
-                return +(sumW / 1000).toFixed(2); // W -> kWh
-            });
+            const days = json.days;
+            const labels = days.map(d => d.date.slice(8)); // só o dia (DD)
+            const totals = days.map(d => d.kwh);
 
-            const barColors = ['#28a745', '#007bff', '#fd7e14'];
-            const barBgColors = [
-                'rgba(40, 167, 69, 0.75)',
-                'rgba(0, 123, 255, 0.75)',
-                'rgba(253, 126, 20, 0.75)'
-            ];
+            // Cor: hoje = verde, ontem = azul, anteontem = laranja, demais = cinza-azulado
+            const bgColors = days.map(d => {
+                if (d.label === 'Hoje') return 'rgba(40, 167, 69, 0.85)';
+                if (d.label === 'Ontem') return 'rgba(0, 123, 255, 0.80)';
+                if (d.label === 'Anteontem') return 'rgba(253, 126, 20, 0.75)';
+                return d.kwh > 0 ? 'rgba(13, 110, 253, 0.55)' : 'rgba(200, 200, 200, 0.4)';
+            });
+            const borderColors = days.map(d => {
+                if (d.label === 'Hoje') return '#28a745';
+                if (d.label === 'Ontem') return '#007bff';
+                if (d.label === 'Anteontem') return '#fd7e14';
+                return d.kwh > 0 ? '#0d6efd' : '#ccc';
+            });
 
             if (dailyBarChart) dailyBarChart.destroy();
 
@@ -1633,11 +1650,10 @@
                     datasets: [{
                         label: 'Geração (kWh)',
                         data: totals,
-                        backgroundColor: barBgColors.slice(0, days.length),
-                        borderColor: barColors.slice(0, days.length),
-                        borderWidth: 2,
-                        borderRadius: 6,
-                        maxBarThickness: 80
+                        backgroundColor: bgColors,
+                        borderColor: borderColors,
+                        borderWidth: 1.5,
+                        borderRadius: 4
                     }]
                 },
                 options: {
@@ -1645,8 +1661,18 @@
                     maintainAspectRatio: false,
                     plugins: {
                         legend: { display: false },
+                        title: {
+                            display: true,
+                            text: 'Mês ' + json.month,
+                            font: { size: 13 }
+                        },
                         tooltip: {
                             callbacks: {
+                                title: function(ctxArr) {
+                                    const idx = ctxArr[0].dataIndex;
+                                    const d = days[idx];
+                                    return d.label + ' (' + d.date.slice(5).replace('-', '/') + ')';
+                                },
                                 label: function(ctx) {
                                     return ctx.parsed.y.toFixed(2) + ' kWh';
                                 }
@@ -1658,7 +1684,121 @@
                             beginAtZero: true,
                             title: { display: true, text: 'Energia (kWh)' },
                             ticks: {
-                                callback: function(v) { return v.toFixed(1) + ' kWh'; }
+                                callback: function(v) { return v.toFixed(1); }
+                            }
+                        },
+                        x: {
+                            title: { display: true, text: 'Dia' },
+                            ticks: { font: { size: 11 } }
+                        }
+                    }
+                },
+                plugins: [{
+                    id: 'barValueLabels',
+                    afterDatasetsDraw(chart) {
+                        const { ctx } = chart;
+                        const meta = chart.getDatasetMeta(0);
+                        // Só mostrar labels se houver poucos dias (evita sobreposição)
+                        if (meta.data.length > 15) return;
+                        chart.data.datasets[0].data.forEach((value, index) => {
+                            if (value <= 0) return;
+                            const bar = meta.data[index];
+                            ctx.save();
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'bottom';
+                            ctx.font = 'bold 10px sans-serif';
+                            ctx.fillStyle = '#333';
+                            ctx.fillText(value.toFixed(1), bar.x, bar.y - 2);
+                            ctx.restore();
+                        });
+                    }
+                }]
+            });
+
+        } catch (e) {
+            console.error('updateDailyBarChart:', e);
+            canvas.style.display = 'none';
+            emptyMsg.style.display = 'block';
+        }
+    }
+
+    // ── Gráfico de barras: Geração Mensal do Ano ─────────────────────────────
+    let monthlyBarChart = null;
+
+    async function updateMonthlyBarChart() {
+        const canvas = document.getElementById('monthlyBarChart');
+        const emptyMsg = document.getElementById('monthlyBarEmpty');
+        try {
+            const res = await fetch('/api/yearly-monthly-totals');
+            const json = await res.json();
+
+            if (json.status !== 'success' || !json.months || json.months.length === 0) {
+                canvas.style.display = 'none';
+                emptyMsg.style.display = 'block';
+                return;
+            }
+
+            canvas.style.display = 'block';
+            emptyMsg.style.display = 'none';
+
+            const months = json.months;
+            const labels = months.map(m => m.label);
+            const totals = months.map(m => m.kwh);
+            const lastIdx = months.length - 1;
+
+            const bgColors = months.map((m, i) => {
+                if (i === lastIdx) return 'rgba(40, 167, 69, 0.85)';  // mes atual = verde
+                return m.kwh > 0 ? 'rgba(13, 110, 253, 0.65)' : 'rgba(200, 200, 200, 0.4)';
+            });
+            const borderColors = months.map((m, i) => {
+                if (i === lastIdx) return '#28a745';
+                return m.kwh > 0 ? '#0d6efd' : '#ccc';
+            });
+
+            if (monthlyBarChart) monthlyBarChart.destroy();
+
+            monthlyBarChart = new Chart(canvas.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Geração (kWh)',
+                        data: totals,
+                        backgroundColor: bgColors,
+                        borderColor: borderColors,
+                        borderWidth: 1.5,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: 'Ano ' + json.year,
+                            font: { size: 13 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: function(ctxArr) {
+                                    const idx = ctxArr[0].dataIndex;
+                                    const m = months[idx];
+                                    return m.label + (idx === lastIdx ? ' (mês atual)' : '');
+                                },
+                                label: function(ctx) {
+                                    return ctx.parsed.y.toFixed(2) + ' kWh';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: { display: true, text: 'Energia (kWh)' },
+                            ticks: {
+                                callback: function(v) { return v.toFixed(0); }
                             }
                         },
                         x: {
@@ -1667,28 +1807,27 @@
                     }
                 },
                 plugins: [{
-                    id: 'barValueLabels',
+                    id: 'monthBarValueLabels',
                     afterDatasetsDraw(chart) {
                         const { ctx } = chart;
-                        chart.data.datasets.forEach((dataset, i) => {
-                            const meta = chart.getDatasetMeta(i);
-                            meta.data.forEach((bar, index) => {
-                                const value = dataset.data[index];
-                                ctx.save();
-                                ctx.textAlign = 'center';
-                                ctx.textBaseline = 'bottom';
-                                ctx.font = 'bold 13px sans-serif';
-                                ctx.fillStyle = '#333';
-                                ctx.fillText(value.toFixed(2) + ' kWh', bar.x, bar.y - 4);
-                                ctx.restore();
-                            });
+                        const meta = chart.getDatasetMeta(0);
+                        chart.data.datasets[0].data.forEach((value, index) => {
+                            if (value <= 0) return;
+                            const bar = meta.data[index];
+                            ctx.save();
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'bottom';
+                            ctx.font = 'bold 11px sans-serif';
+                            ctx.fillStyle = '#333';
+                            ctx.fillText(value.toFixed(1), bar.x, bar.y - 3);
+                            ctx.restore();
                         });
                     }
                 }]
             });
 
         } catch (e) {
-            console.error('updateDailyBarChart:', e);
+            console.error('updateMonthlyBarChart:', e);
             canvas.style.display = 'none';
             emptyMsg.style.display = 'block';
         }
@@ -1705,6 +1844,7 @@
             updateTodayVsYesterdayChart(),
             updateComparisonChart(),
             updateDailyBarChart(),
+            updateMonthlyBarChart(),
             updatePanelsData(),
             updateInverterSummary(),
             updateMeterData(),

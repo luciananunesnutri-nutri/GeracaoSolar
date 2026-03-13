@@ -878,6 +878,152 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             logger.error(f"Erro ao buscar comparação diária: {e}")
             return jsonify({'status': 'error', 'message': str(e)}), 500
 
+    @app.route('/api/monthly-daily-totals')
+    def api_monthly_daily_totals():
+        """Retorna total de geração (kWh) para cada dia do mês atual até hoje."""
+        today = _today_br()
+        cache_key = f'monthly_daily_totals_{today.isoformat()}'
+
+        cached = _realtime_cache.get(cache_key)
+        if cached:
+            age = (datetime.now() - cached['timestamp']).total_seconds()
+            if age < 900:  # 15 min cache
+                return jsonify(cached['value'])
+
+        try:
+            first_day = today.replace(day=1)
+            num_days = (today - first_day).days + 1
+
+            # Buscar dados diários da API APSystems (retorna lista de kWh por dia do mês)
+            daily_kwh = [0.0] * num_days
+            try:
+                client = _make_api_client()
+                inverters = client.get_system_inverters()
+                ecu_id = inverters[0].get('eid') if inverters else None
+                if ecu_id:
+                    month_str = today.strftime('%Y-%m')
+                    api_daily = client.get_ecu_energy(ecu_id, 'daily', month_str)
+                    if api_daily and isinstance(api_daily, list):
+                        for idx, val in enumerate(api_daily):
+                            if idx < num_days:
+                                try:
+                                    daily_kwh[idx] = round(float(val or 0), 2)
+                                except (ValueError, TypeError):
+                                    pass
+            except Exception as e:
+                logger.warning(f"monthly-daily-totals: falha API: {e}")
+
+            # Fallback: banco local para dias sem dados da API
+            if any(v == 0 for v in daily_kwh):
+                try:
+                    repository = Repository()
+                    for day_offset in range(num_days):
+                        if daily_kwh[day_offset] == 0:
+                            d = first_day + timedelta(days=day_offset)
+                            # Tentar hourly data
+                            data = repository.get_generation_data_for_period(d, d)
+                            hourly_sum = sum(
+                                r.power_watts for r in data if r.panel_id == 'hourly'
+                            )
+                            if hourly_sum > 0:
+                                daily_kwh[day_offset] = round(hourly_sum / 1000, 2)
+                            else:
+                                # Tentar daily stats
+                                stats = repository.get_daily_stats(d)
+                                if stats and stats.total_generation_kwh and stats.total_generation_kwh > 0:
+                                    daily_kwh[day_offset] = round(stats.total_generation_kwh, 2)
+                except Exception as e:
+                    logger.warning(f"monthly-daily-totals: falha DB fallback: {e}")
+
+            # Montar resultado
+            days_result = []
+            for day_offset in range(num_days):
+                d = first_day + timedelta(days=day_offset)
+                if d == today:
+                    label = 'Hoje'
+                elif d == today - timedelta(days=1):
+                    label = 'Ontem'
+                elif d == today - timedelta(days=2):
+                    label = 'Anteontem'
+                else:
+                    label = d.strftime('%d/%m')
+
+                days_result.append({
+                    'date': d.isoformat(),
+                    'label': label,
+                    'kwh': daily_kwh[day_offset]
+                })
+
+            result = {'status': 'success', 'days': days_result, 'month': today.strftime('%m/%Y')}
+            _realtime_cache[cache_key] = {'value': result, 'timestamp': datetime.now()}
+            return jsonify(result)
+
+        except Exception as e:
+            logger.error(f"Erro ao buscar totais diários do mês: {e}")
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
+    @app.route('/api/yearly-monthly-totals')
+    def api_yearly_monthly_totals():
+        """Retorna total de geração (kWh) por mês do ano atual até o mês corrente."""
+        today = _today_br()
+        cache_key = f'yearly_monthly_totals_{today.isoformat()}'
+
+        cached = _realtime_cache.get(cache_key)
+        if cached:
+            age = (datetime.now() - cached['timestamp']).total_seconds()
+            if age < 3600:  # 1h cache
+                return jsonify(cached['value'])
+
+        try:
+            current_month = today.month
+            month_names = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+                           'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+
+            monthly_kwh = [0.0] * current_month
+
+            # Buscar da API APSystems
+            try:
+                client = _make_api_client()
+                inverters = client.get_system_inverters()
+                ecu_id = inverters[0].get('eid') if inverters else None
+                if ecu_id:
+                    year_str = str(today.year)
+                    api_monthly = client.get_ecu_energy(ecu_id, 'monthly', year_str)
+                    if api_monthly and isinstance(api_monthly, list):
+                        for idx, val in enumerate(api_monthly):
+                            if idx < current_month:
+                                try:
+                                    monthly_kwh[idx] = round(float(val or 0), 2)
+                                except (ValueError, TypeError):
+                                    pass
+            except Exception as e:
+                logger.warning(f"yearly-monthly-totals: falha API: {e}")
+
+            # Montar resultado
+            months_result = []
+            for i in range(current_month):
+                label = month_names[i]
+                if i == current_month - 1:
+                    label = f'{month_names[i]} (atual)'
+
+                months_result.append({
+                    'month': i + 1,
+                    'label': month_names[i],
+                    'kwh': monthly_kwh[i]
+                })
+
+            result = {
+                'status': 'success',
+                'months': months_result,
+                'year': today.year
+            }
+            _realtime_cache[cache_key] = {'value': result, 'timestamp': datetime.now()}
+            return jsonify(result)
+
+        except Exception as e:
+            logger.error(f"Erro ao buscar totais mensais do ano: {e}")
+            return jsonify({'status': 'error', 'message': str(e)}), 500
+
     @app.route('/api/monthly/<int:year>/<int:month>')
     def api_monthly(year, month):
         """Retorna estatísticas mensais."""
