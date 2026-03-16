@@ -53,6 +53,7 @@ def _load_credentials():
     ap['app_id'] = os.environ.get('APSYSTEMS_APP_ID') or ap.get('app_id') or ''
     ap['app_secret'] = os.environ.get('APSYSTEMS_APP_SECRET') or ap.get('app_secret') or ''
     ap['sid'] = os.environ.get('APSYSTEMS_SID') or ap.get('sid') or ''
+    ap['ecu_id'] = os.environ.get('APSYSTEMS_ECU_ID') or ap.get('ecu_id') or ''
 
     em = creds.setdefault('email', {})
     em['sender_email'] = os.environ.get('EMAIL_SENDER') or em.get('sender_email')
