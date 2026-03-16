@@ -18,6 +18,11 @@ _api_cache = {}  # key -> {'value': ..., 'date': date}
 _realtime_cache = {}  # key -> {'value': ..., 'timestamp': datetime}
 _REALTIME_CACHE_TTL = 300  # 5 minutos em segundos
 
+# Cache do ecu_id para evitar chamar get_system_inverters repetidamente
+_ecu_cache = {}  # {'ecu_id': str, 'timestamp': datetime}
+_ECU_CACHE_TTL = 3600  # 1 hora
+_ecu_lock = threading.Lock()
+
 # Estado da coleta em andamento
 _collect_state = {'running': False, 'last_result': None, 'last_run': None}
 
@@ -67,6 +72,47 @@ def _make_api_client():
         app_secret=creds['apsystems']['app_secret'],
         system_id=creds['apsystems']['sid']
     )
+
+
+def _get_ecu_id(client=None):
+    """Retorna ecu_id. Prioridade: credenciais > cache > API."""
+    # 1. Das credenciais (zero chamadas API)
+    try:
+        creds = _load_credentials()
+        ecu_from_config = creds['apsystems'].get('ecu_id')
+        if ecu_from_config:
+            return str(ecu_from_config)
+    except Exception:
+        pass
+
+    # 2. Do cache em memória
+    now = datetime.now()
+    if _ecu_cache.get('ecu_id'):
+        age = (now - _ecu_cache['timestamp']).total_seconds()
+        if age < _ECU_CACHE_TTL:
+            return _ecu_cache['ecu_id']
+
+    # 3. Da API (última opção, com lock para evitar chamadas duplicadas)
+    with _ecu_lock:
+        if _ecu_cache.get('ecu_id'):
+            age = (datetime.now() - _ecu_cache['timestamp']).total_seconds()
+            if age < _ECU_CACHE_TTL:
+                return _ecu_cache['ecu_id']
+
+        if client is None:
+            client = _make_api_client()
+        try:
+            inverters = client.get_system_inverters()
+            ecu_id = inverters[0].get('eid') if inverters else None
+            if ecu_id:
+                _ecu_cache['ecu_id'] = ecu_id
+                _ecu_cache['timestamp'] = datetime.now()
+            return ecu_id
+        except Exception as e:
+            if _ecu_cache.get('ecu_id'):
+                logger.warning(f"Usando ecu_id em cache expirado: {e}")
+                return _ecu_cache['ecu_id']
+            raise
 
 
 def register_routes(app):
@@ -525,9 +571,8 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
                     # Buscar summary (energy_today, energy_total)
                     summary = client.get_system_summary()
 
-                    # Buscar inversores para obter ECU ID
-                    inverters = client.get_system_inverters()
-                    ecu_id = inverters[0].get('eid') if inverters else None
+                    # Obter ECU ID (cacheado)
+                    ecu_id = _get_ecu_id(client)
 
                     # Buscar telemetria minutely da ECU (potência atual em tempo real)
                     ecu_telemetry = None
@@ -698,8 +743,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             if not hourly_map and is_today:
                 try:
                     client = _make_api_client()
-                    inverters = client.get_system_inverters()
-                    ecu_id = inverters[0].get('eid') if inverters else None
+                    ecu_id = _get_ecu_id(client)
                     if ecu_id:
                         api_hourly = client.get_ecu_energy(ecu_id, 'hourly', date_str)
                         if api_hourly and isinstance(api_hourly, dict):
@@ -793,13 +837,12 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             repository = Repository()
             days_result = []
 
-            # Criar client e obter ecu_id uma única vez para fallback API
+            # Criar client e obter ecu_id (cacheado) para fallback API
             client = None
             ecu_id = None
             try:
                 client = _make_api_client()
-                inverters = client.get_system_inverters()
-                ecu_id = inverters[0].get('eid') if inverters else None
+                ecu_id = _get_ecu_id(client)
             except Exception as e:
                 logger.warning(f"daily-comparison: falha ao inicializar API client: {e}")
 
@@ -898,8 +941,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             daily_kwh = [0.0] * num_days
             try:
                 client = _make_api_client()
-                inverters = client.get_system_inverters()
-                ecu_id = inverters[0].get('eid') if inverters else None
+                ecu_id = _get_ecu_id(client)
                 if ecu_id:
                     month_str = today.strftime('%Y-%m')
                     api_daily = client.get_ecu_energy(ecu_id, 'daily', month_str)
@@ -984,8 +1026,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
             # Buscar da API APSystems
             try:
                 client = _make_api_client()
-                inverters = client.get_system_inverters()
-                ecu_id = inverters[0].get('eid') if inverters else None
+                ecu_id = _get_ecu_id(client)
                 if ecu_id:
                     year_str = str(today.year)
                     api_monthly = client.get_ecu_energy(ecu_id, 'monthly', year_str)
@@ -1257,8 +1298,7 @@ Se não houver dados suficientes (valores zero), informe isso claramente e sugir
                 else:
                     try:
                         client = _make_api_client()
-                        inverters = client.get_system_inverters()
-                        ecu_id = inverters[0].get('eid') if inverters else None
+                        ecu_id = _get_ecu_id(client)
                         if ecu_id:
                             live_telemetry = client.get_ecu_energy(ecu_id, 'minutely', today_str)
                             # Atualizar cache

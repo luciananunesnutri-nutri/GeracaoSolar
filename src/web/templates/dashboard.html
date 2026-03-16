@@ -708,6 +708,19 @@
     let dailyChart = null;
     let comparisonChart = null;
     let todayVsYesterdayChart = null;
+
+    // Cache de API para evitar chamadas duplicadas no mesmo ciclo de atualização
+    const _apiCache = {};
+    async function cachedFetch(url, ttlMs = 60000) {
+        const now = Date.now();
+        if (_apiCache[url] && (now - _apiCache[url].ts) < ttlMs) {
+            return _apiCache[url].data;
+        }
+        const res = await fetch(url);
+        const data = await res.json();
+        _apiCache[url] = { data, ts: now };
+        return data;
+    }
     let inverterChart = null;
     let inverterData = null;   // cache dos dados brutos
     let inverterPeriod = 'today';
@@ -847,8 +860,7 @@
     // ── Estimativa de geração do mês ─────────────────────────────────────────
     async function updateMonthEstimate() {
         try {
-            const res = await fetch('/api/monthly-daily-totals');
-            const json = await res.json();
+            const json = await cachedFetch('/api/monthly-daily-totals');
             const el = document.getElementById('energyEstimate');
             const detail = document.getElementById('energyEstimateDetail');
 
@@ -1444,8 +1456,7 @@
         const canvas = document.getElementById('todayVsYesterdayChart');
         const emptyMsg = document.getElementById('todayVsYesterdayEmpty');
         try {
-            const res = await fetch('/api/daily-comparison');
-            const json = await res.json();
+            const json = await cachedFetch('/api/daily-comparison');
 
             if (json.status !== 'success' || !json.days || json.days.length === 0) {
                 canvas.style.display = 'none';
@@ -1579,8 +1590,7 @@
         const canvas = document.getElementById('comparisonChart');
         const emptyMsg = document.getElementById('comparisonEmpty');
         try {
-            const res = await fetch('/api/daily-comparison');
-            const json = await res.json();
+            const json = await cachedFetch('/api/daily-comparison');
 
             if (json.status !== 'success' || !json.days || json.days.length === 0) {
                 canvas.style.display = 'none';
@@ -1659,8 +1669,7 @@
         const canvas = document.getElementById('dailyBarChart');
         const emptyMsg = document.getElementById('dailyBarEmpty');
         try {
-            const res = await fetch('/api/monthly-daily-totals');
-            const json = await res.json();
+            const json = await cachedFetch('/api/monthly-daily-totals');
 
             if (json.status !== 'success' || !json.days || json.days.length === 0) {
                 canvas.style.display = 'none';
@@ -1777,8 +1786,7 @@
         const canvas = document.getElementById('monthlyBarChart');
         const emptyMsg = document.getElementById('monthlyBarEmpty');
         try {
-            const res = await fetch('/api/yearly-monthly-totals');
-            const json = await res.json();
+            const json = await cachedFetch('/api/yearly-monthly-totals');
 
             if (json.status !== 'success' || !json.months || json.months.length === 0) {
                 canvas.style.display = 'none';

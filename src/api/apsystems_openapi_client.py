@@ -58,23 +58,59 @@ class APSystemsOpenAPIClient:
         if 'timeout' not in kwargs:
             kwargs['timeout'] = 30
 
-        try:
-            logger.info(f"Requisição {method} {url}")
-            response = requests.request(method, url, **kwargs)
-            response.raise_for_status()
-            data = response.json()
+        max_retries = 3
+        # Erros temporários que vale retry (NÃO incluir 2005 = rate limit)
+        retry_codes = {5000, 6000, 7000}
+        # Erros de rate limit — não fazer retry, só piora
+        no_retry_codes = {2005, 7001, 7002}
 
-            if data.get('code') == 0:
-                logger.info(f"Requisição bem-sucedida: {endpoint}")
-                return data
-            else:
-                error_msg = f"Erro na API (code={data.get('code')}): {data.get('message', 'Unknown error')}"
-                logger.error(error_msg)
-                raise Exception(error_msg)
+        for attempt in range(1, max_retries + 1):
+            try:
+                # Recalcular assinatura a cada tentativa (timestamp muda)
+                if attempt > 1:
+                    timestamp = str(int(time.time() * 1000))
+                    nonce = uuid.uuid4().hex
+                    signature = self._calculate_signature(timestamp, nonce, endpoint, method)
+                    kwargs['headers'].update({
+                        'X-CA-Timestamp': timestamp,
+                        'X-CA-Nonce': nonce,
+                        'X-CA-Signature': signature,
+                    })
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Erro na requisição {method} {url}: {e}")
-            raise
+                logger.info(f"Requisição {method} {url} (tentativa {attempt}/{max_retries})")
+                response = requests.request(method, url, **kwargs)
+                response.raise_for_status()
+                data = response.json()
+
+                if data.get('code') == 0:
+                    logger.info(f"Requisição bem-sucedida: {endpoint}")
+                    return data
+                else:
+                    api_code = data.get('code')
+                    error_msg = f"Erro na API (code={api_code}): {data.get('message', 'Unknown error')}"
+
+                    # Rate limit — falhar imediatamente sem retry
+                    if api_code in no_retry_codes:
+                        logger.error(f"{error_msg} (rate limit — sem retry)")
+                        raise Exception(error_msg)
+
+                    if api_code in retry_codes and attempt < max_retries:
+                        wait = 2 ** attempt  # 2s, 4s
+                        logger.warning(f"{error_msg} — retry em {wait}s...")
+                        time.sleep(wait)
+                        continue
+
+                    logger.error(error_msg)
+                    raise Exception(error_msg)
+
+            except requests.exceptions.RequestException as e:
+                if attempt < max_retries:
+                    wait = 2 ** attempt
+                    logger.warning(f"Erro na requisição {method} {url}: {e} — retry em {wait}s...")
+                    time.sleep(wait)
+                    continue
+                logger.error(f"Erro na requisição {method} {url}: {e}")
+                raise
 
     # ── Endpoints existentes ──────────────────────────────────────────────────
 
@@ -217,7 +253,7 @@ class APSystemsOpenAPIClient:
                         f"Total={data['summary'].get('lifetime')} kWh")
         except Exception as e:
             logger.warning(f"Erro ao obter resumo: {e}")
-            raise  # resumo é essencial
+            # Continuar sem summary — dados parciais ainda são úteis
 
         try:
             data['energy_today'] = self.get_system_energy('hourly', today_str)
