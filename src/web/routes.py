@@ -174,6 +174,8 @@ def register_routes(app):
             'APSYSTEMS_APP_ID_set': bool(os.environ.get('APSYSTEMS_APP_ID')),
             'APSYSTEMS_APP_SECRET_set': bool(os.environ.get('APSYSTEMS_APP_SECRET')),
             'APSYSTEMS_SID_set': bool(os.environ.get('APSYSTEMS_SID')),
+            'APSYSTEMS_ECU_ID_set': bool(os.environ.get('APSYSTEMS_ECU_ID')),
+            'ecu_id_resolved': _get_ecu_id() if ap.get('ecu_id') else 'not_configured',
             'creds_app_id_len': len(ap.get('app_id') or ''),
             'creds_app_secret_len': len(ap.get('app_secret') or ''),
             'recipients': recipients_info,
